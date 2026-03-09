@@ -56,6 +56,33 @@ def get_menu(menu_id: str):
     return jsonify(get_menu_from_db(menu_id))
 
 
+@app.get("/api/test/menus")
+def list_all_menus():
+    if not DATABASE_URL:
+        abort(500, description="DATABASE_URL is not configured")
+
+    query = """
+        SELECT
+            id,
+            hotel,
+            categories,
+            category_aliases,
+            items,
+            labels,
+            created_at,
+            updated_at
+        FROM menus
+        ORDER BY updated_at DESC
+    """
+
+    with connect(DATABASE_URL, row_factory=dict_row) as conn:
+        with conn.cursor() as cur:
+            cur.execute(query)
+            rows = cur.fetchall()
+
+    return jsonify(rows)
+
+
 @app.get("/")
 def root():
     return redirect(f"/hotel/{DEFAULT_MENU_ID}", code=302)
