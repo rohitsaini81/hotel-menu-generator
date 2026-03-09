@@ -56,7 +56,7 @@ def get_menu(menu_id: str):
     return jsonify(get_menu_from_db(menu_id))
 
 
-@app.get("/api/test/menus")
+@app.get("/api/menus")
 def list_all_menus():
     if not DATABASE_URL:
         abort(500, description="DATABASE_URL is not configured")
