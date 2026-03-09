@@ -1,10 +1,14 @@
 import os
+from pathlib import Path
 
-from flask import Flask, abort, jsonify
+from flask import Flask, abort, jsonify, redirect, send_from_directory
 from psycopg import connect
 from psycopg.rows import dict_row
 
 DATABASE_URL = os.environ.get("DATABASE_URL")
+BASE_DIR = Path(__file__).resolve().parent
+WEB_ROOT = (BASE_DIR / "hotel-menu").resolve()
+DEFAULT_MENU_ID = "b948064d"
 
 app = Flask(__name__)
 
@@ -53,8 +57,29 @@ def get_menu(menu_id: str):
 
 
 @app.get("/")
-def health():
-    return {"status": "ok"}
+def root():
+    return redirect(f"/hotel/{DEFAULT_MENU_ID}", code=302)
+
+
+@app.get("/hotel/<menu_id>")
+def hotel_page(menu_id: str):
+    get_menu_from_db(menu_id)
+    return send_from_directory(WEB_ROOT, "index.html")
+
+
+@app.get("/css/<path:filename>")
+def serve_css(filename: str):
+    return send_from_directory(WEB_ROOT / "css", filename)
+
+
+@app.get("/js/<path:filename>")
+def serve_js(filename: str):
+    return send_from_directory(WEB_ROOT / "js", filename)
+
+
+@app.get("/index.html")
+def serve_index():
+    return send_from_directory(WEB_ROOT, "index.html")
 
 
 if __name__ == "__main__":
