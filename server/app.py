@@ -1,25 +1,53 @@
-import json
+import os
 from pathlib import Path
-import re
 
 from flask import Flask, abort, jsonify, redirect, send_from_directory
+from psycopg import connect
+from psycopg.rows import dict_row
 
 BASE_DIR = Path(__file__).resolve().parent
 WEB_ROOT = (BASE_DIR.parent / "hotel-menu").resolve()
-MENU_ID_PATTERN = re.compile(r"^[a-zA-Z0-9]{8}$")
 DEFAULT_MENU_ID = "b948064d"
+DATABASE_URL = os.environ.get("DATABASE_URL")
 
 app = Flask(__name__)
 
 
-def resolve_menu_file(menu_id: str) -> Path:
-    if not MENU_ID_PATTERN.fullmatch(menu_id):
+def get_db_menu(menu_id: str) -> dict:
+    if not DATABASE_URL:
+        abort(500, description="DATABASE_URL is not configured")
+
+    query = """
+        SELECT
+            hotel,
+            categories,
+            category_aliases,
+            items,
+            labels
+        FROM menus
+        WHERE
+            id::text = %(menu_id)s
+            OR hotel->>'id' = %(menu_id)s
+            OR hotel->>'menu_id' = %(menu_id)s
+            OR hotel->>'slug' = %(menu_id)s
+        ORDER BY updated_at DESC
+        LIMIT 1
+    """
+    with connect(DATABASE_URL, row_factory=dict_row) as conn:
+        with conn.cursor() as cur:
+            cur.execute(query, {"menu_id": menu_id})
+            row = cur.fetchone()
+
+    if not row:
         abort(404, description="Menu not found")
 
-    menu_file = BASE_DIR / f"{menu_id}.json"
-    if not menu_file.is_file():
-        abort(404, description="Menu not found")
-    return menu_file
+    return {
+        "hotel": row["hotel"] or {},
+        "categories": row["categories"] or [],
+        "categoryAliases": row["category_aliases"] or {},
+        "items": row["items"] or [],
+        "labels": row["labels"] or {},
+    }
 
 
 @app.get("/")
@@ -29,16 +57,13 @@ def root():
 
 @app.get("/hotel/<menu_id>")
 def hotel_page(menu_id: str):
-    resolve_menu_file(menu_id)
+    get_db_menu(menu_id)
     return send_from_directory(WEB_ROOT, "index.html")
 
 
 @app.get("/api/menu/<menu_id>")
 def get_menu(menu_id: str):
-    menu_file = resolve_menu_file(menu_id)
-    with menu_file.open("r", encoding="utf-8") as file:
-        data = json.load(file)
-    return jsonify(data)
+    return jsonify(get_db_menu(menu_id))
 
 
 @app.get("/css/<path:filename>")
