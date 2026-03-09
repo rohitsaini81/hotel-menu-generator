@@ -1,4 +1,5 @@
-const menuIdPattern = /^[a-zA-Z0-9]{8}$/;
+const menuIdPattern =
+  /^([a-zA-Z0-9]{8}|[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12})$/;
 
 const getMenuIdFromPath = () => {
   const segments = window.location.pathname.split("/").filter(Boolean);
@@ -482,7 +483,7 @@ const init = async () => {
   }
 
   try {
-    const res = await fetch(`/api/menu/${state.menuId}`);
+    const res = await fetch(`/api/menu/${encodeURIComponent(state.menuId)}`);
     if (!res.ok) {
       throw new Error(`Menu not found (${state.menuId})`);
     }
