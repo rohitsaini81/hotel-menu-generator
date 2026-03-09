@@ -47,6 +47,21 @@ http://localhost:8000/hotel/b948064d
 curl http://127.0.0.1:8000/api/menu/b948064d
 ```
 
+## Run With Docker + Gunicorn
+
+From the project root:
+
+```bash
+docker build -t hotel-menu-generator .
+docker run --rm -p 8000:8000 hotel-menu-generator
+```
+
+Then open:
+
+```text
+http://localhost:8000/hotel/b948064d
+```
+
 ## How Routing Works
 
 - `GET /hotel/<8-char-id>`
