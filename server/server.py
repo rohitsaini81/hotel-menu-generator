@@ -5,7 +5,10 @@ import sys
 
 
 def main() -> None:
-    root = Path(__file__).resolve().parent
+    root = (Path(__file__).resolve().parent.parent / "hotel-menu").resolve()
+    if not root.exists() or not root.is_dir():
+        raise SystemExit(f"Static directory not found: {root}")
+
     port = int(sys.argv[1]) if len(sys.argv) > 1 else 8000
 
     class Handler(SimpleHTTPRequestHandler):

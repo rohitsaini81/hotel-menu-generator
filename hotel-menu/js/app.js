@@ -193,6 +193,9 @@ const renderCart = () => {
         <p>Add items from the menu to build your tray.</p>
         <button id="go-menu" class="primary-btn" type="button">Browse menu</button>
       </article>
+      <button class="primary-btn order-btn" type="button" data-action="place-order">
+        Place order
+      </button>
     `;
     refs.goMenu = document.getElementById("go-menu");
     refs.goMenu.addEventListener("click", () => updateView("menu"));
@@ -228,7 +231,60 @@ const renderCart = () => {
       <span>Total</span>
       <span>${formatPrice(total, state.data.hotel.currency)}</span>
     </div>
+    <button class="primary-btn order-btn" type="button" data-action="place-order">
+      Place order
+    </button>
   `;
+};
+
+const openOrderPopup = () => {
+  const { entries, count, total } = cartSummary();
+  if (entries.length === 0) return;
+
+  const lines = entries
+    .map(([id, qty]) => {
+      const item = state.data.items.find((entry) => entry.id === id);
+      if (!item) return "";
+      return `
+        <li>
+          <span>${item.name} × ${qty}</span>
+          <strong>${formatPrice(item.price * qty, state.data.hotel.currency)}</strong>
+        </li>
+      `;
+    })
+    .join("");
+
+  refs.sheetContent.innerHTML = `
+    <div class="sheet-content">
+      <h3>Order placed</h3>
+      <p>Your tray has been sent to the kitchen.</p>
+      <ul class="order-list">
+        ${lines}
+      </ul>
+      <div class="cart-total order-total">
+        <span>Total</span>
+        <span>${formatPrice(total, state.data.hotel.currency)}</span>
+      </div>
+      <p class="order-note">${count} item${count === 1 ? "" : "s"} will be delivered shortly.</p>
+      <button class="primary-btn" type="button" data-action="close-sheet">Done</button>
+    </div>
+  `;
+
+  refs.sheet.classList.add("show");
+  refs.sheet.setAttribute("aria-hidden", "false");
+};
+
+const openEmptyOrderPopup = () => {
+  refs.sheetContent.innerHTML = `
+    <div class="sheet-content">
+      <h3>Tray is empty</h3>
+      <p>Add items to your tray before placing an order.</p>
+      <button class="primary-btn" type="button" data-action="close-sheet">Done</button>
+    </div>
+  `;
+
+  refs.sheet.classList.add("show");
+  refs.sheet.setAttribute("aria-hidden", "false");
 };
 
 const openSheet = (item) => {
@@ -340,6 +396,12 @@ const registerEvents = () => {
   refs.sheetClose.addEventListener("click", closeSheet);
 
   refs.sheetContent.addEventListener("click", (event) => {
+    const closeButton = event.target.closest("[data-action=\"close-sheet\"]");
+    if (closeButton) {
+      closeSheet();
+      return;
+    }
+
     const button = event.target.closest("[data-action=\"add-to-cart\"]");
     if (!button) return;
     const id = button.dataset.id;
@@ -350,9 +412,22 @@ const registerEvents = () => {
   });
 
   refs.cartList.addEventListener("click", (event) => {
-    const card = event.target.closest("[data-id]");
     const action = event.target.closest("[data-action]")?.dataset.action;
-    if (!card || !action) return;
+    if (!action) return;
+
+    if (action === "place-order") {
+      if (state.cart.size === 0) {
+        openEmptyOrderPopup();
+        return;
+      }
+      openOrderPopup();
+      state.cart.clear();
+      renderCart();
+      return;
+    }
+
+    const card = event.target.closest("[data-id]");
+    if (!card) return;
     const id = card.dataset.id;
     const current = state.cart.get(id) || 0;
     if (action === "increase") state.cart.set(id, current + 1);
