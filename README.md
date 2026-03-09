@@ -13,10 +13,9 @@ Hotel menu system with:
   - Fetches menu data from `/api/menu/<menu_id>`.
 
 - `server/`
-  - `server.py`: primary server to run locally.
+  - `app.py`: primary Flask server to run locally.
   - Serves static frontend from `hotel-menu/`.
   - Serves menu JSON API from files named as 8-char IDs (example: `b948064d.json`).
-  - `app.py`: optional Flask version (kept for API/hello-world usage).
 
 - `mobile_admin/`
   - Flutter admin app prototype.
@@ -33,7 +32,7 @@ Hotel menu system with:
 
 ```bash
 cd server
-python3 server.py 8000
+flask --app app run --debug --port 8000
 ```
 
 2. Open menu in browser:
@@ -73,24 +72,12 @@ cd server
 cp ../hotel-menu/data/menu.json a1b2c3d4.json
 ```
 
-## Optional: Run Flask App
+## Alternate Server Start
 
-From `server/`:
-
-```bash
-flask --app app run --debug
-```
-
-Default local URL:
-
-```text
-http://127.0.0.1:5000/
-```
-
-Menu API example on Flask app:
+From `server/`, you can also run:
 
 ```bash
-curl http://127.0.0.1:5000/api/menu/b948064d
+python3 app.py
 ```
 
 ## Run Mobile Admin (Flutter)
