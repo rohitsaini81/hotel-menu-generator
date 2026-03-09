@@ -1,7 +1,20 @@
-const dataPath = "data/menu.json";
+const menuIdPattern = /^[a-zA-Z0-9]{8}$/;
+
+const getMenuIdFromPath = () => {
+  const segments = window.location.pathname.split("/").filter(Boolean);
+  if (
+    segments.length >= 2 &&
+    segments[0] === "hotel" &&
+    menuIdPattern.test(segments[1])
+  ) {
+    return segments[1];
+  }
+  return null;
+};
 
 const state = {
   data: null,
+  menuId: getMenuIdFromPath(),
   category: "all",
   search: "",
   favorites: new Set(),
@@ -28,6 +41,28 @@ const refs = {
   views: document.querySelectorAll(".view"),
   cartList: document.getElementById("cart-list"),
   cartCount: document.getElementById("cart-count"),
+};
+
+const renderLoadError = (message) => {
+  refs.hotelName.textContent = "Hotel Menu";
+  refs.hotelTagline.textContent = message;
+  refs.hotelHours.textContent = "Unavailable";
+  refs.resultsCount.textContent = "0 items";
+  refs.categoryChips.innerHTML = "";
+  refs.highlights.innerHTML = "";
+  refs.menuList.innerHTML = `
+    <article class="tray-card">
+      <h3>Unable to load menu</h3>
+      <p>${message}</p>
+    </article>
+  `;
+  refs.favoritesList.innerHTML = "";
+  refs.cartList.innerHTML = `
+    <article class="tray-card">
+      <h3>Tray unavailable</h3>
+      <p>Open a valid menu URL to continue.</p>
+    </article>
+  `;
 };
 
 const formatPrice = (value, currency = "USD") =>
@@ -441,8 +476,22 @@ const registerEvents = () => {
 };
 
 const init = async () => {
-  const res = await fetch(dataPath);
-  state.data = await res.json();
+  if (!state.menuId) {
+    renderLoadError("Use /hotel/<menu_id> to load the menu.");
+    return;
+  }
+
+  try {
+    const res = await fetch(`/api/menu/${state.menuId}`);
+    if (!res.ok) {
+      throw new Error(`Menu not found (${state.menuId})`);
+    }
+    state.data = await res.json();
+  } catch (_error) {
+    renderLoadError(`Could not load menu for ID ${state.menuId}.`);
+    return;
+  }
+
   renderHotel();
   renderCategories();
   renderHighlights();
