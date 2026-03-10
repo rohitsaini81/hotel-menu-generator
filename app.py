@@ -433,7 +433,7 @@ def delete_category(menu_id: str, category_id: str):
 
 @app.get("/")
 def root():
-    return redirect(f"/hotel/{DEFAULT_MENU_ID}", code=302)
+    return redirect("/api/menus", code=302)
 
 
 @app.get("/hotel/<menu_id>")
