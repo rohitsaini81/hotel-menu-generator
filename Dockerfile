@@ -8,10 +8,10 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY server ./server
+COPY app.py ./app.py
 COPY hotel-menu ./hotel-menu
 
-WORKDIR /app/server
+WORKDIR /app
 
 EXPOSE 8000
 
