@@ -170,6 +170,7 @@ class _AuthLandingState extends State<AuthLanding>
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
     final isWide = size.width >= 900;
+    final isCompact = size.width < 520;
 
     return Scaffold(
       body: AnimatedBuilder(
@@ -191,39 +192,49 @@ class _AuthLandingState extends State<AuthLanding>
                 shift: Offset(-60 * _bgController.value, -40),
               ),
               SafeArea(
-                child: Center(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 1100),
-                    child: Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: isWide
-                          ? Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Expanded(child: _BrandPanel(isLogin: isLogin)),
-                                const SizedBox(width: 32),
-                                Expanded(
-                                  child: _AuthCard(
-                                    isLogin: isLogin,
-                                    onToggle: () =>
-                                        setState(() => isLogin = !isLogin),
-                                  ),
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    return SingleChildScrollView(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: isCompact ? 16 : 24,
+                        vertical: isCompact ? 16 : 24,
+                      ),
+                      child: Center(
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 1100),
+                          child: isWide
+                              ? Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Expanded(
+                                      child: _BrandPanel(isLogin: isLogin),
+                                    ),
+                                    const SizedBox(width: 32),
+                                    Expanded(
+                                      child: _AuthCard(
+                                        isLogin: isLogin,
+                                        onToggle: () =>
+                                            setState(() => isLogin = !isLogin),
+                                      ),
+                                    ),
+                                  ],
+                                )
+                              : Column(
+                                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                                  children: [
+                                    _BrandPanel(isLogin: isLogin),
+                                    const SizedBox(height: 20),
+                                    _AuthCard(
+                                      isLogin: isLogin,
+                                      onToggle: () =>
+                                          setState(() => isLogin = !isLogin),
+                                    ),
+                                  ],
                                 ),
-                              ],
-                            )
-                          : Column(
-                              children: [
-                                _BrandPanel(isLogin: isLogin),
-                                const SizedBox(height: 24),
-                                _AuthCard(
-                                  isLogin: isLogin,
-                                  onToggle: () =>
-                                      setState(() => isLogin = !isLogin),
-                                ),
-                              ],
-                            ),
-                    ),
-                  ),
+                        ),
+                      ),
+                    );
+                  },
                 ),
               ),
             ],
@@ -296,6 +307,7 @@ class _BrandPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isCompact = MediaQuery.of(context).size.width < 520;
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0, end: 1),
       duration: const Duration(milliseconds: 700),
@@ -317,7 +329,7 @@ class _BrandPanel extends StatelessWidget {
           Text(
             isLogin ? 'Welcome back' : 'Create your admin access',
             style: GoogleFonts.fraunces(
-              fontSize: 38,
+              fontSize: isCompact ? 30 : 38,
               fontWeight: FontWeight.w600,
               color: const Color(0xFF1C1A18),
             ),
@@ -333,10 +345,10 @@ class _BrandPanel extends StatelessWidget {
           ),
           const SizedBox(height: 24),
           const _MotionBanner(),
-          const SizedBox(height: 20),
+          const SizedBox(height: 16),
           Wrap(
-            spacing: 12,
-            runSpacing: 12,
+            spacing: 10,
+            runSpacing: 10,
             children: const [
               _FeatureChip(label: 'Live edits'),
               _FeatureChip(label: 'Role access'),
@@ -344,7 +356,7 @@ class _BrandPanel extends StatelessWidget {
               _FeatureChip(label: 'Audit logs'),
             ],
           ),
-          const SizedBox(height: 28),
+          const SizedBox(height: 20),
           _ActivityLogCard(isLogin: isLogin),
         ],
       ),
@@ -573,6 +585,7 @@ class _AuthCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isCompact = MediaQuery.of(context).size.width < 520;
     return Container(
       padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
@@ -589,19 +602,38 @@ class _AuthCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                isLogin ? 'Sign in' : 'Sign up',
-                style: GoogleFonts.fraunces(
-                  fontSize: 24,
-                  fontWeight: FontWeight.w600,
+          if (isCompact)
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  isLogin ? 'Sign in' : 'Sign up',
+                  style: GoogleFonts.fraunces(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
-              ),
-              _AuthToggle(isLogin: isLogin, onToggle: onToggle),
-            ],
-          ),
+                const SizedBox(height: 10),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: _AuthToggle(isLogin: isLogin, onToggle: onToggle),
+                ),
+              ],
+            )
+          else
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  isLogin ? 'Sign in' : 'Sign up',
+                  style: GoogleFonts.fraunces(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                _AuthToggle(isLogin: isLogin, onToggle: onToggle),
+              ],
+            ),
           const SizedBox(height: 8),
           Text(
             isLogin
@@ -792,35 +824,53 @@ class _RowField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: BoxDecoration(
-              color: const Color(0xFFFDF9F3),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: const Color(0xFFE6DACB)),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: 10,
-                  height: 10,
-                  decoration: const BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Color(0xFF57B894),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                const Text(
-                  'Secure session ready',
-                  style: TextStyle(fontSize: 12),
-                ),
-              ],
+    final isCompact = MediaQuery.of(context).size.width < 420;
+    final statusChip = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFDF9F3),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE6DACB)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 10,
+            height: 10,
+            decoration: const BoxDecoration(
+              shape: BoxShape.circle,
+              color: Color(0xFF57B894),
             ),
           ),
-        ),
+          const SizedBox(width: 8),
+          const Text(
+            'Secure session ready',
+            style: TextStyle(fontSize: 12),
+          ),
+        ],
+      ),
+    );
+
+    if (isCompact) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          statusChip,
+          const SizedBox(height: 8),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton(
+              onPressed: () {},
+              child: const Text('Forgot code?'),
+            ),
+          ),
+        ],
+      );
+    }
+
+    return Row(
+      children: [
+        Expanded(child: statusChip),
         const SizedBox(width: 12),
         TextButton(
           onPressed: () {},
@@ -1271,6 +1321,7 @@ class _HeaderCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isCompact = MediaQuery.of(context).size.width < 600;
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
@@ -1287,55 +1338,100 @@ class _HeaderCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Hotel Admin',
-                      style: TextStyle(
-                        fontSize: 11,
-                        letterSpacing: 2.4,
-                        color: Colors.grey.shade600,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      hotelName,
-                      style: GoogleFonts.fraunces(
-                        fontSize: 26,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      hotelHours,
-                      style: TextStyle(color: Colors.grey.shade600),
-                    ),
-                  ],
+          if (isCompact)
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Hotel Admin',
+                  style: TextStyle(
+                    fontSize: 11,
+                    letterSpacing: 2.4,
+                    color: Colors.grey.shade600,
+                  ),
                 ),
-              ),
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFF7E5DD),
-                  foregroundColor: const Color(0xFFC4532D),
-                  elevation: 0,
-                  shape: const StadiumBorder(),
+                const SizedBox(height: 6),
+                Text(
+                  hotelName,
+                  style: GoogleFonts.fraunces(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
-                onPressed: onSync,
-                child: const Text('Sync'),
-              ),
-            ],
-          ),
+                const SizedBox(height: 4),
+                Text(
+                  hotelHours,
+                  style: TextStyle(color: Colors.grey.shade600),
+                ),
+                const SizedBox(height: 12),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFF7E5DD),
+                      foregroundColor: const Color(0xFFC4532D),
+                      elevation: 0,
+                      shape: const StadiumBorder(),
+                    ),
+                    onPressed: onSync,
+                    child: const Text('Sync'),
+                  ),
+                ),
+              ],
+            )
+          else
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Hotel Admin',
+                        style: TextStyle(
+                          fontSize: 11,
+                          letterSpacing: 2.4,
+                          color: Colors.grey.shade600,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        hotelName,
+                        style: GoogleFonts.fraunces(
+                          fontSize: 26,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        hotelHours,
+                        style: TextStyle(color: Colors.grey.shade600),
+                      ),
+                    ],
+                  ),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFF7E5DD),
+                    foregroundColor: const Color(0xFFC4532D),
+                    elevation: 0,
+                    shape: const StadiumBorder(),
+                  ),
+                  onPressed: onSync,
+                  child: const Text('Sync'),
+                ),
+              ],
+            ),
           const SizedBox(height: 16),
           Row(
             children: [
               _StatCard(value: totalItems.toString(), label: 'Menu items'),
               const SizedBox(width: 10),
-              _StatCard(value: totalCategories.toString(), label: 'Categories'),
+              _StatCard(
+                value: totalCategories.toString(),
+                label: 'Categories',
+              ),
               const SizedBox(width: 10),
               _StatCard(value: lastEdit, label: 'Last edit'),
             ],
