@@ -1,11 +1,18 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+import 'package:google_sign_in_platform_interface/google_sign_in_platform_interface.dart';
 import 'package:http/http.dart' as http;
 
-void main() {
+import 'web_client_id.dart';
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await AuthService.ensureInitialized();
   runApp(const AdminApp());
 }
 
@@ -52,9 +59,21 @@ class AdminApp extends StatelessWidget {
 
 class ApiConfig {
   static const baseUrl = 'https://hotel-menu-generator.onrender.com';
+
+  static String get googleClientId {
+    const envClientId =
+        String.fromEnvironment('GOOGLE_CLIENT_ID', defaultValue: '');
+    if (envClientId.isNotEmpty) {
+      return envClientId;
+    }
+    final webClientId = readWebClientId();
+    return webClientId ?? '';
+  }
 }
 
 class ApiClient {
+  static String? authToken;
+
   static Future<List<MenuSummary>> listMenus() async {
     final response = await http.get(Uri.parse('${ApiConfig.baseUrl}/api/menus'));
     if (response.statusCode != 200) {
@@ -142,6 +161,72 @@ class ApiClient {
     }
     return MenuData.fromJson(jsonDecode(response.body));
   }
+
+  static Future<AuthResponse> loginWithGoogle(String idToken) async {
+    final response = await http.post(
+      Uri.parse('${ApiConfig.baseUrl}/api/auth/google/login'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'idToken': idToken}),
+    );
+    if (response.statusCode >= 400) {
+      throw Exception('Google login failed');
+    }
+    final auth = AuthResponse.fromJson(jsonDecode(response.body));
+    authToken = auth.token;
+    return auth;
+  }
+}
+
+class AuthService {
+  static bool _didInit = false;
+  static final GoogleSignIn _googleSignIn = GoogleSignIn(
+    scopes: const ['email', 'profile', 'openid'],
+    clientId: kIsWeb && ApiConfig.googleClientId.isNotEmpty
+        ? ApiConfig.googleClientId
+        : null,
+    serverClientId: !kIsWeb && ApiConfig.googleClientId.isNotEmpty
+        ? ApiConfig.googleClientId
+        : null,
+  );
+
+  static Stream<GoogleSignInAccount?> get onCurrentUserChanged =>
+      _googleSignIn.onCurrentUserChanged;
+
+  static Future<void> ensureInitialized() async {
+    if (_didInit) {
+      return;
+    }
+    _didInit = true;
+    if (kIsWeb) {
+      await GoogleSignInPlatform.instance.initWithParams(
+        SignInInitParameters(
+          clientId:
+              ApiConfig.googleClientId.isEmpty ? null : ApiConfig.googleClientId,
+          scopes: const ['email', 'profile', 'openid'],
+        ),
+      );
+    }
+    await _googleSignIn.signInSilently();
+  }
+
+  static Future<AuthResponse> authenticateAccount(
+    GoogleSignInAccount account,
+  ) async {
+    final auth = await account.authentication;
+    final idToken = auth.idToken;
+    if (idToken == null || idToken.isEmpty) {
+      throw Exception('Missing Google id token');
+    }
+    return ApiClient.loginWithGoogle(idToken);
+  }
+
+  static Future<AuthResponse> signInWithGoogle() async {
+    final account = await _googleSignIn.signIn();
+    if (account == null) {
+      throw Exception('Google sign-in cancelled');
+    }
+    return authenticateAccount(account);
+  }
 }
 
 class AuthLanding extends StatefulWidget {
@@ -154,6 +239,9 @@ class AuthLanding extends StatefulWidget {
 class _AuthLandingState extends State<AuthLanding>
     with SingleTickerProviderStateMixin {
   bool isLogin = true;
+  bool _isAuthBusy = false;
+  late final StreamSubscription<GoogleSignInAccount?>
+      _googleUserSubscription;
 
   late final AnimationController _bgController = AnimationController(
     vsync: this,
@@ -161,7 +249,21 @@ class _AuthLandingState extends State<AuthLanding>
   )..repeat(reverse: true);
 
   @override
+  void initState() {
+    super.initState();
+    AuthService.ensureInitialized();
+    _googleUserSubscription =
+        AuthService.onCurrentUserChanged.listen((account) {
+      if (!kIsWeb || account == null) {
+        return;
+      }
+      _handleGoogleAccount(account);
+    });
+  }
+
+  @override
   void dispose() {
+    _googleUserSubscription.cancel();
     _bgController.dispose();
     super.dispose();
   }
@@ -213,6 +315,8 @@ class _AuthLandingState extends State<AuthLanding>
                                     Expanded(
                                       child: _AuthCard(
                                         isLogin: isLogin,
+                                        isBusy: _isAuthBusy,
+                                        onGoogleLogin: _handleGoogleLogin,
                                         onToggle: () =>
                                             setState(() => isLogin = !isLogin),
                                       ),
@@ -226,6 +330,8 @@ class _AuthLandingState extends State<AuthLanding>
                                     const SizedBox(height: 20),
                                     _AuthCard(
                                       isLogin: isLogin,
+                                      isBusy: _isAuthBusy,
+                                      onGoogleLogin: _handleGoogleLogin,
                                       onToggle: () =>
                                           setState(() => isLogin = !isLogin),
                                     ),
@@ -242,6 +348,66 @@ class _AuthLandingState extends State<AuthLanding>
         },
       ),
     );
+  }
+
+  Future<void> _handleGoogleLogin() async {
+    if (_isAuthBusy) {
+      return;
+    }
+    setState(() => _isAuthBusy = true);
+    try {
+      await AuthService.signInWithGoogle();
+      if (!mounted) {
+        return;
+      }
+      Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => const MenuListScreen()),
+      );
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(error.toString()),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isAuthBusy = false);
+      }
+    }
+  }
+
+  Future<void> _handleGoogleAccount(GoogleSignInAccount account) async {
+    if (_isAuthBusy) {
+      return;
+    }
+    setState(() => _isAuthBusy = true);
+    try {
+      await AuthService.authenticateAccount(account);
+      if (!mounted) {
+        return;
+      }
+      Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => const MenuListScreen()),
+      );
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(error.toString()),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isAuthBusy = false);
+      }
+    }
   }
 }
 
@@ -578,10 +744,17 @@ class _LogEntry extends StatelessWidget {
 }
 
 class _AuthCard extends StatelessWidget {
-  const _AuthCard({required this.isLogin, required this.onToggle});
+  const _AuthCard({
+    required this.isLogin,
+    required this.onToggle,
+    required this.onGoogleLogin,
+    required this.isBusy,
+  });
 
   final bool isLogin;
   final VoidCallback onToggle;
+  final VoidCallback onGoogleLogin;
+  final bool isBusy;
 
   @override
   Widget build(BuildContext context) {
@@ -673,6 +846,40 @@ class _AuthCard extends StatelessWidget {
             onPressed: () {},
             child: Text(isLogin ? 'Enter workspace' : 'Create account'),
           ),
+          const SizedBox(height: 12),
+          OutlinedButton(
+            style: OutlinedButton.styleFrom(
+              foregroundColor: const Color(0xFF2B2B2B),
+              side: const BorderSide(color: Color(0xFFE7E0D4)),
+              backgroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+            ),
+            onPressed: (isBusy || ApiConfig.googleClientId.isEmpty)
+                ? null
+                : onGoogleLogin,
+            child: isBusy
+                ? const SizedBox(
+                    height: 18,
+                    width: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : Text(
+                    ApiConfig.googleClientId.isEmpty
+                        ? 'Google client ID missing'
+                        : 'Continue with Google',
+                  ),
+          ),
+          if (kIsWeb && ApiConfig.googleClientId.isEmpty) ...[
+            const SizedBox(height: 8),
+            Text(
+              'Set GOOGLE_CLIENT_ID via --dart-define or fill the web/index.html meta tag.',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+            ),
+          ],
           const SizedBox(height: 12),
           OutlinedButton(
             style: OutlinedButton.styleFrom(
@@ -2119,6 +2326,51 @@ class MenuItemData {
       'calories': calories,
       'keywords': keywords,
     };
+  }
+}
+
+class AuthUser {
+  const AuthUser({
+    required this.id,
+    required this.email,
+    required this.name,
+    required this.picture,
+  });
+
+  final String id;
+  final String email;
+  final String name;
+  final String picture;
+
+  factory AuthUser.fromJson(Map<String, dynamic> json) {
+    return AuthUser(
+      id: json['id']?.toString() ?? '',
+      email: json['email']?.toString() ?? '',
+      name: json['name']?.toString() ?? '',
+      picture: json['picture']?.toString() ?? '',
+    );
+  }
+}
+
+class AuthResponse {
+  const AuthResponse({
+    required this.token,
+    required this.user,
+    required this.expiresAt,
+  });
+
+  final String token;
+  final AuthUser user;
+  final String expiresAt;
+
+  factory AuthResponse.fromJson(Map<String, dynamic> json) {
+    return AuthResponse(
+      token: json['token']?.toString() ?? '',
+      user: AuthUser.fromJson(
+        (json['user'] as Map<String, dynamic>? ?? {}),
+      ),
+      expiresAt: json['expiresAt']?.toString() ?? '',
+    );
   }
 }
 
