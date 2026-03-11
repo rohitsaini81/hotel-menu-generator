@@ -5,12 +5,30 @@ from flask import Flask, abort, jsonify, redirect, request, send_from_directory
 from psycopg import connect
 from psycopg.rows import dict_row
 
+from lib_functions_python.auth_google import (
+    build_user_payload,
+    create_session_jwt,
+    exchange_google_code,
+    load_google_auth_config,
+    verify_google_id_token,
+)
+
 DATABASE_URL = os.environ.get("DATABASE_URL")
 BASE_DIR = Path(__file__).resolve().parent
 WEB_ROOT = (BASE_DIR / "hotel-menu").resolve()
 DEFAULT_MENU_ID = "b948064d"
 
 app = Flask(__name__)
+
+
+def _build_auth_response(google_payload: dict, jwt_secret: str) -> dict:
+    user_payload = build_user_payload(google_payload)
+    session = create_session_jwt(user_payload, jwt_secret)
+    return {
+        "token": session["token"],
+        "user": user_payload,
+        "expiresAt": session["expires_at"],
+    }
 
 
 def _serialize_menu_row(row: dict) -> dict:
@@ -64,6 +82,37 @@ def get_menu_from_db(menu_id: str) -> dict:
 @app.get("/api/menu/<menu_id>")
 def get_menu(menu_id: str):
     return jsonify(get_menu_from_db(menu_id))
+
+
+@app.post("/api/auth/google/login")
+def google_login():
+    payload = request.get_json(silent=True) or {}
+    id_token = payload.get("idToken")
+    if not id_token:
+        abort(400, description="idToken is required")
+    try:
+        config = load_google_auth_config()
+        google_payload = verify_google_id_token(id_token, config.client_id)
+    except ValueError as exc:
+        abort(400, description=str(exc))
+    return jsonify(_build_auth_response(google_payload, config.jwt_secret))
+
+
+@app.get("/api/auth/google/callback")
+def google_callback():
+    code = request.args.get("code")
+    if not code:
+        abort(400, description="code is required")
+    try:
+        config = load_google_auth_config()
+        token_data = exchange_google_code(code, config)
+        id_token = token_data.get("id_token")
+        if not id_token:
+            abort(400, description="Missing id_token from Google")
+        google_payload = verify_google_id_token(id_token, config.client_id)
+    except ValueError as exc:
+        abort(400, description=str(exc))
+    return jsonify(_build_auth_response(google_payload, config.jwt_secret))
 
 
 @app.get("/api/menus")
