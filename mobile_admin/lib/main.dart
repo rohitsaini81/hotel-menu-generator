@@ -181,10 +181,12 @@ class AuthService {
   static bool _didInit = false;
   static final GoogleSignIn _googleSignIn = GoogleSignIn(
     scopes: const ['email', 'profile', 'openid'],
+    // On Android/iOS, GoogleSignIn reads the client from google-services.json
+    // or GoogleService-Info.plist. Only web needs an explicit clientId.
     clientId: kIsWeb && ApiConfig.googleClientId.isNotEmpty
         ? ApiConfig.googleClientId
         : null,
-    serverClientId: !kIsWeb && ApiConfig.googleClientId.isNotEmpty
+    serverClientId: kIsWeb && ApiConfig.googleClientId.isNotEmpty
         ? ApiConfig.googleClientId
         : null,
   );
@@ -857,7 +859,7 @@ class _AuthCard extends StatelessWidget {
                 borderRadius: BorderRadius.circular(16),
               ),
             ),
-            onPressed: (isBusy || ApiConfig.googleClientId.isEmpty)
+            onPressed: (isBusy || (kIsWeb && ApiConfig.googleClientId.isEmpty))
                 ? null
                 : onGoogleLogin,
             child: isBusy
@@ -867,7 +869,7 @@ class _AuthCard extends StatelessWidget {
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
                 : Text(
-                    ApiConfig.googleClientId.isEmpty
+                    (kIsWeb && ApiConfig.googleClientId.isEmpty)
                         ? 'Google client ID missing'
                         : 'Continue with Google',
                   ),
