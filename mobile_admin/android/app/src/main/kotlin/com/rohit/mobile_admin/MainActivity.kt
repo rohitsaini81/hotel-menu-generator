@@ -1,4 +1,4 @@
-package com.example.mobile_admin
+package com.rohit.mobile_admin
 
 import io.flutter.embedding.android.FlutterActivity
 
