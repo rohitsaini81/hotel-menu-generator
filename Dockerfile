@@ -9,6 +9,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY app.py ./app.py
+COPY lib_functions_python ./lib_functions_python
 COPY hotel-menu ./hotel-menu
 
 WORKDIR /app
