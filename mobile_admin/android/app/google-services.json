@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "267308856621",
+    "project_id": "practice-684f9",
+    "storage_bucket": "practice-684f9.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:267308856621:android:959e982c63b14563af0fa4",
+        "android_client_info": {
+          "package_name": "com.rohit.mobile_admin"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "267308856621-dh3ff3ddmukg9m7u9he8au350hp9b3nn.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.rohit.mobile_admin",
+            "certificate_hash": "940be939824127bdbd42570e29fca9cf83142284"
+          }
+        },
+        {
+          "client_id": "267308856621-iatjk5pb7klfjr8odh2c4lavj7su0e92.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAjs2sbQ2U1u0Qx7GhQxsMk8VDz2Yh1T4U"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "267308856621-iatjk5pb7klfjr8odh2c4lavj7su0e92.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
