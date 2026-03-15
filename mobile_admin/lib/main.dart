@@ -58,7 +58,8 @@ class AdminApp extends StatelessWidget {
 }
 
 class ApiConfig {
-  static const baseUrl = 'http://127.0.0.1:5000';
+  static const baseUrl = 'https://hotel-menu-generator.onrender.com';
+  // static const baseUrl = 'http://127.0.0.1:5000';
 
   static String get googleClientId {
     const envClientId =
