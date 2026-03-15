@@ -2310,14 +2310,20 @@ class MenuData {
   final Map<String, List<String>> categoryAliases;
 
   factory MenuData.fromJson(Map<String, dynamic> json) {
+    final categories = (json['categories'] as List)
+        .map((entry) => CategoryData.fromJson(entry as Map<String, dynamic>))
+        .toList()
+        .reversed
+        .toList();
+    final items = (json['items'] as List)
+        .map((entry) => MenuItemData.fromJson(entry as Map<String, dynamic>))
+        .toList()
+        .reversed
+        .toList();
     return MenuData(
       hotel: HotelData.fromJson(json['hotel'] as Map<String, dynamic>),
-      categories: (json['categories'] as List)
-          .map((entry) => CategoryData.fromJson(entry as Map<String, dynamic>))
-          .toList(),
-      items: (json['items'] as List)
-          .map((entry) => MenuItemData.fromJson(entry as Map<String, dynamic>))
-          .toList(),
+      categories: categories,
+      items: items,
       labels: (json['labels'] as Map<String, dynamic>? ?? {})
           .map((key, value) => MapEntry(key, value.toString())),
       categoryAliases:
