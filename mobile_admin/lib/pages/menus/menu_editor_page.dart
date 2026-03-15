@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/api_client.dart';
+import '../../core/api_config.dart';
 import '../../models/menu_models.dart';
 import '../../utils/menu_helpers.dart';
+import 'menu_sync_page.dart';
 
 class MenuEditorScreen extends StatefulWidget {
   const MenuEditorScreen({super.key, required this.menuId});
@@ -44,6 +46,28 @@ class _MenuEditorScreenState extends State<MenuEditorScreen> {
     setState(() {
       lastEdit = now.format(context);
     });
+  }
+
+  Future<void> _syncAndShowQr() async {
+    final result = await ApiClient.getMenu(widget.menuId);
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      data = result;
+      lastEdit = 'Just now';
+    });
+    final menuUrl = '${ApiConfig.baseUrl}/hotel/${widget.menuId}';
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => MenuSyncPage(
+          hotelName: result.hotel.name,
+          hotelHours: result.hotel.hours,
+          menuId: widget.menuId,
+          menuUrl: menuUrl,
+        ),
+      ),
+    );
   }
 
   Future<void> _openCategoryPicker() async {
@@ -250,7 +274,7 @@ class _MenuEditorScreenState extends State<MenuEditorScreen> {
                   totalItems: data!.items.length,
                   totalCategories: data!.categories.length,
                   lastEdit: lastEdit,
-                  onSync: _loadData,
+                  onSync: _syncAndShowQr,
                   onQueryChanged: (value) {
                     setState(() => query = value);
                   },
