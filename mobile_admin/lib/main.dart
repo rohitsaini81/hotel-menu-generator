@@ -58,7 +58,7 @@ class AdminApp extends StatelessWidget {
 }
 
 class ApiConfig {
-  static const baseUrl = 'https://hotel-menu-generator.onrender.com';
+  static const baseUrl = 'http://127.0.0.1:5000';
 
   static String get googleClientId {
     const envClientId =
@@ -74,33 +74,135 @@ class ApiConfig {
 class ApiClient {
   static String? authToken;
 
+  static Map<String, String> _headers({bool json = false}) {
+    final headers = <String, String>{};
+    if (json) {
+      headers['Content-Type'] = 'application/json';
+    }
+    final token = authToken;
+    if (token != null && token.isNotEmpty) {
+      headers['Authorization'] = 'Bearer $token';
+    }
+    return headers;
+  }
+
+  static Never _throwRequestError(String message, http.Response response) {
+    final body = response.body.trim();
+    final suffix = body.isEmpty ? '' : ': $body';
+    throw Exception('$message (${response.statusCode})$suffix');
+  }
+
+  static void _log(String message) {
+    debugPrint('[ApiClient] $message');
+  }
+
+  static Map<String, String> _sanitizeHeaders(Map<String, String> headers) {
+    return headers.map((key, value) {
+      if (key.toLowerCase() == 'authorization') {
+        if (value.length <= 20) {
+          return MapEntry(key, value);
+        }
+        return MapEntry(key, '${value.substring(0, 20)}...');
+      }
+      return MapEntry(key, value);
+    });
+  }
+
+  static void _logRequest(
+    String method,
+    Uri uri, {
+    Map<String, String>? headers,
+    Object? body,
+  }) {
+    _log('REQUEST $method $uri');
+    if (headers != null && headers.isNotEmpty) {
+      _log('REQUEST HEADERS ${jsonEncode(_sanitizeHeaders(headers))}');
+    }
+    if (body != null) {
+      _log('REQUEST BODY $body');
+    }
+  }
+
+  static void _logResponse(
+    String method,
+    Uri uri,
+    http.Response response,
+  ) {
+    _log('RESPONSE $method $uri -> ${response.statusCode}');
+    final body = response.body.trim();
+    if (body.isNotEmpty) {
+      _log('RESPONSE BODY $body');
+    }
+  }
+
+  static Future<http.Response> _get(
+    Uri uri, {
+    Map<String, String>? headers,
+  }) async {
+    _logRequest('GET', uri, headers: headers);
+    final response = await http.get(uri, headers: headers);
+    _logResponse('GET', uri, response);
+    return response;
+  }
+
+  static Future<http.Response> _post(
+    Uri uri, {
+    Map<String, String>? headers,
+    Object? body,
+  }) async {
+    _logRequest('POST', uri, headers: headers, body: body);
+    final response = await http.post(uri, headers: headers, body: body);
+    _logResponse('POST', uri, response);
+    return response;
+  }
+
+  static Future<http.Response> _put(
+    Uri uri, {
+    Map<String, String>? headers,
+    Object? body,
+  }) async {
+    _logRequest('PUT', uri, headers: headers, body: body);
+    final response = await http.put(uri, headers: headers, body: body);
+    _logResponse('PUT', uri, response);
+    return response;
+  }
+
+  static Future<http.Response> _delete(
+    Uri uri, {
+    Map<String, String>? headers,
+  }) async {
+    _logRequest('DELETE', uri, headers: headers);
+    final response = await http.delete(uri, headers: headers);
+    _logResponse('DELETE', uri, response);
+    return response;
+  }
+
   static Future<List<MenuSummary>> listMenus() async {
-    final response = await http.get(Uri.parse('${ApiConfig.baseUrl}/api/menus'));
+    final response = await _get(Uri.parse('${ApiConfig.baseUrl}/api/menus'));
     if (response.statusCode != 200) {
-      throw Exception('Failed to load menus');
+      _throwRequestError('Failed to load menus', response);
     }
     final decoded = jsonDecode(response.body) as List;
     return decoded.map((entry) => MenuSummary.fromJson(entry)).toList();
   }
 
   static Future<MenuData> getMenu(String menuId) async {
-    final response = await http.get(
+    final response = await _get(
       Uri.parse('${ApiConfig.baseUrl}/api/menus/$menuId'),
     );
     if (response.statusCode != 200) {
-      throw Exception('Failed to load menu');
+      _throwRequestError('Failed to load menu', response);
     }
     return MenuData.fromJson(jsonDecode(response.body));
   }
 
   static Future<MenuData> createItem(String menuId, MenuItemData item) async {
-    final response = await http.post(
-      Uri.parse('${ApiConfig.baseUrl}/api/menus/$menuId/items'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode(item.toJson()),
-    );
+    final uri = Uri.parse('${ApiConfig.baseUrl}/api/menus/$menuId/items');
+    final headers = _headers(json: true);
+    final body = jsonEncode(item.toJson());
+    final response = await _post(uri, headers: headers, body: body);
     if (response.statusCode >= 400) {
-      throw Exception('Failed to create item');
+      _throwRequestError('Failed to create item', response);
     }
     return MenuData.fromJson(jsonDecode(response.body));
   }
@@ -110,23 +212,22 @@ class ApiClient {
     String itemId,
     MenuItemData item,
   ) async {
-    final response = await http.put(
-      Uri.parse('${ApiConfig.baseUrl}/api/menus/$menuId/items/$itemId'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode(item.toJson()),
-    );
+    final uri = Uri.parse('${ApiConfig.baseUrl}/api/menus/$menuId/items/$itemId');
+    final headers = _headers(json: true);
+    final body = jsonEncode(item.toJson());
+    final response = await _put(uri, headers: headers, body: body);
     if (response.statusCode >= 400) {
-      throw Exception('Failed to update item');
+      _throwRequestError('Failed to update item', response);
     }
     return MenuData.fromJson(jsonDecode(response.body));
   }
 
   static Future<MenuData> deleteItem(String menuId, String itemId) async {
-    final response = await http.delete(
-      Uri.parse('${ApiConfig.baseUrl}/api/menus/$menuId/items/$itemId'),
-    );
+    final uri = Uri.parse('${ApiConfig.baseUrl}/api/menus/$menuId/items/$itemId');
+    final headers = _headers();
+    final response = await _delete(uri, headers: headers);
     if (response.statusCode >= 400) {
-      throw Exception('Failed to delete item');
+      _throwRequestError('Failed to delete item', response);
     }
     return MenuData.fromJson(jsonDecode(response.body));
   }
@@ -135,13 +236,12 @@ class ApiClient {
     String menuId,
     CategoryData category,
   ) async {
-    final response = await http.post(
-      Uri.parse('${ApiConfig.baseUrl}/api/menus/$menuId/categories'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode(category.toJson()),
-    );
+    final uri = Uri.parse('${ApiConfig.baseUrl}/api/menus/$menuId/categories');
+    final headers = _headers(json: true);
+    final body = jsonEncode(category.toJson());
+    final response = await _post(uri, headers: headers, body: body);
     if (response.statusCode >= 400) {
-      throw Exception('Failed to create category');
+      _throwRequestError('Failed to create category', response);
     }
     return MenuData.fromJson(jsonDecode(response.body));
   }
@@ -151,25 +251,25 @@ class ApiClient {
     String categoryId,
     CategoryData category,
   ) async {
-    final response = await http.put(
-      Uri.parse('${ApiConfig.baseUrl}/api/menus/$menuId/categories/$categoryId'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode(category.toJson()),
+    final uri = Uri.parse(
+      '${ApiConfig.baseUrl}/api/menus/$menuId/categories/$categoryId',
     );
+    final headers = _headers(json: true);
+    final body = jsonEncode(category.toJson());
+    final response = await _put(uri, headers: headers, body: body);
     if (response.statusCode >= 400) {
-      throw Exception('Failed to update category');
+      _throwRequestError('Failed to update category', response);
     }
     return MenuData.fromJson(jsonDecode(response.body));
   }
 
   static Future<AuthResponse> loginWithGoogle(String idToken) async {
-    final response = await http.post(
-      Uri.parse('${ApiConfig.baseUrl}/api/auth/google/login'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'idToken': idToken}),
-    );
+    final uri = Uri.parse('${ApiConfig.baseUrl}/api/auth/google/login');
+    final headers = _headers(json: true);
+    final body = jsonEncode({'idToken': idToken});
+    final response = await _post(uri, headers: headers, body: body);
     if (response.statusCode >= 400) {
-      throw Exception('Google login failed');
+      _throwRequestError('Google login failed', response);
     }
     final auth = AuthResponse.fromJson(jsonDecode(response.body));
     authToken = auth.token;
@@ -1369,7 +1469,7 @@ class _MenuEditorScreenState extends State<MenuEditorScreen> {
                 ? await ApiClient.createItem(widget.menuId, payload)
                 : await ApiClient.updateItem(
                     widget.menuId,
-                    payload.id,
+                    item.id,
                     payload,
                   );
             setState(() {

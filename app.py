@@ -3,6 +3,7 @@ from pathlib import Path
 
 from flask import Flask, abort, jsonify, redirect, request, send_from_directory
 from psycopg import connect
+from psycopg.types.json import Jsonb
 from psycopg.rows import dict_row
 
 from lib_functions_python.auth_google import (
@@ -355,8 +356,8 @@ def _save_menu_parts(menu_id: str, *, categories=None, items=None):
     query = """
         UPDATE menus
         SET
-            categories = COALESCE(%(categories)s, categories),
-            items = COALESCE(%(items)s, items),
+            categories = COALESCE(%(categories)s::jsonb, categories),
+            items = COALESCE(%(items)s::jsonb, items),
             updated_at = NOW()
         WHERE id::text = %(menu_id)s
            OR hotel->>'id' = %(menu_id)s
@@ -378,8 +379,8 @@ def _save_menu_parts(menu_id: str, *, categories=None, items=None):
                 query,
                 {
                     "menu_id": menu_id,
-                    "categories": categories,
-                    "items": items,
+                    "categories": None if categories is None else Jsonb(categories),
+                    "items": None if items is None else Jsonb(items),
                 },
             )
             row = cur.fetchone()
