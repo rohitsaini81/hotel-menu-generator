@@ -6,7 +6,6 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
-import '../../core/api_config.dart';
 import '../../core/auth_service.dart';
 import '../menus/menu_list_page.dart';
 
@@ -641,31 +640,15 @@ class _AuthCard extends StatelessWidget {
                 borderRadius: BorderRadius.circular(16),
               ),
             ),
-            onPressed: (isBusy || ApiConfig.googleClientId.isEmpty)
-                ? null
-                : onGoogleLogin,
+            onPressed: isBusy ? null : onGoogleLogin,
             child: isBusy
                 ? const SizedBox(
                     height: 18,
                     width: 18,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                : Text(
-                    ApiConfig.googleClientId.isEmpty
-                        ? 'Google client ID missing'
-                        : 'Continue with Google',
-                  ),
+                : const Text('Continue with Google'),
           ),
-          if (ApiConfig.googleClientId.isEmpty) ...[
-            const SizedBox(height: 8),
-            Text(
-              kIsWeb
-                  ? 'Set GOOGLE_CLIENT_ID via --dart-define or fill the web/index.html meta tag.'
-                  : 'Set GOOGLE_CLIENT_ID via --dart-define when building or running the app.',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
-            ),
-          ],
           const SizedBox(height: 12),
           OutlinedButton(
             style: OutlinedButton.styleFrom(
