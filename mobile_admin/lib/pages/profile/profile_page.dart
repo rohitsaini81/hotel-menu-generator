@@ -3,13 +3,75 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/auth_service.dart';
 
-class ProfilePage extends StatelessWidget {
+class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  State<ProfilePage> createState() => _ProfilePageState();
+}
+
+class _ProfilePageState extends State<ProfilePage> {
+  late String _name;
+  late String _email;
+  late String _number;
+  late String _googleId;
+  late String _picture;
+  late bool _isTester;
+
+  @override
+  void initState() {
+    super.initState();
     final profile = AuthService.currentProfile;
-    final hasPicture = profile != null && profile.picture.isNotEmpty;
+    _name = profile?.name ?? 'Guest';
+    _email = profile?.email ?? 'Not available';
+    _number = profile?.number ?? 'Not available';
+    _googleId = profile?.id ?? 'Not available';
+    _picture = profile?.picture ?? '';
+    _isTester = profile?.isTester ?? false;
+  }
+
+  Future<void> _editField({
+    required String title,
+    required String currentValue,
+    required ValueChanged<String> onSave,
+  }) async {
+    final controller = TextEditingController(text: currentValue);
+    final updated = await showDialog<String>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text(title),
+          content: TextField(
+            controller: controller,
+            autofocus: true,
+            decoration: InputDecoration(hintText: 'Enter $title'),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(controller.text),
+              child: const Text('Save'),
+            ),
+          ],
+        );
+      },
+    );
+    if (!mounted || updated == null) {
+      return;
+    }
+    final value = updated.trim();
+    if (value.isEmpty) {
+      return;
+    }
+    setState(() => onSave(value));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final hasPicture = _picture.isNotEmpty;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Profile')),
@@ -37,30 +99,73 @@ class ProfilePage extends StatelessWidget {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      CircleAvatar(
-                        radius: 44,
-                        backgroundColor: const Color(0xFFE8E0D2),
-                        backgroundImage: hasPicture
-                            ? NetworkImage(profile.picture)
-                            : null,
-                        child: hasPicture
-                            ? null
-                            : const Icon(
-                                Icons.person_rounded,
-                                size: 42,
-                                color: Color(0xFF725D49),
+                      Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          CircleAvatar(
+                            radius: 44,
+                            backgroundColor: const Color(0xFFE8E0D2),
+                            backgroundImage: hasPicture
+                                ? NetworkImage(_picture)
+                                : null,
+                            child: hasPicture
+                                ? null
+                                : const Icon(
+                                    Icons.person_rounded,
+                                    size: 42,
+                                    color: Color(0xFF725D49),
+                                  ),
+                          ),
+                          Positioned(
+                            right: -2,
+                            bottom: -2,
+                            child: Material(
+                              color: const Color(0xFF0F2B3A),
+                              shape: const CircleBorder(),
+                              child: InkWell(
+                                customBorder: const CircleBorder(),
+                                onTap: () => _editField(
+                                  title: 'Profile image URL',
+                                  currentValue: _picture,
+                                  onSave: (value) => _picture = value,
+                                ),
+                                child: const Padding(
+                                  padding: EdgeInsets.all(7),
+                                  child: Icon(
+                                    Icons.edit_rounded,
+                                    size: 15,
+                                    color: Colors.white,
+                                  ),
+                                ),
                               ),
+                            ),
+                          ),
+                        ],
                       ),
                       const SizedBox(height: 14),
-                      Text(
-                        profile?.name ?? 'Guest',
-                        style: GoogleFonts.fraunces(
-                          fontSize: 28,
-                          fontWeight: FontWeight.w600,
-                          color: const Color(0xFF1C1A18),
+                      InkWell(
+                        borderRadius: BorderRadius.circular(12),
+                        onTap: () => _editField(
+                          title: 'Name',
+                          currentValue: _name,
+                          onSave: (value) => _name = value,
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 4,
+                          ),
+                          child: Text(
+                            _name,
+                            style: GoogleFonts.fraunces(
+                              fontSize: 28,
+                              fontWeight: FontWeight.w600,
+                              color: const Color(0xFF1C1A18),
+                            ),
+                          ),
                         ),
                       ),
-                      if (profile?.isTester == true) ...[
+                      if (_isTester) ...[
                         const SizedBox(height: 8),
                         Container(
                           padding: const EdgeInsets.symmetric(
@@ -84,20 +189,35 @@ class ProfilePage extends StatelessWidget {
                       const SizedBox(height: 20),
                       _ProfileField(
                         label: 'Email',
-                        value: profile?.email ?? 'Not available',
+                        value: _email,
                         icon: Icons.alternate_email_rounded,
+                        onEdit: () => _editField(
+                          title: 'Email',
+                          currentValue: _email,
+                          onSave: (value) => _email = value,
+                        ),
                       ),
                       const SizedBox(height: 12),
                       _ProfileField(
                         label: 'Number',
-                        value: profile?.number ?? 'Not available',
+                        value: _number,
                         icon: Icons.phone_rounded,
+                        onEdit: () => _editField(
+                          title: 'Number',
+                          currentValue: _number,
+                          onSave: (value) => _number = value,
+                        ),
                       ),
                       const SizedBox(height: 12),
                       _ProfileField(
-                        label: 'Google ID',
-                        value: profile?.id ?? 'Not available',
+                        label: 'User ID',
+                        value: _googleId,
                         icon: Icons.badge_outlined,
+                        onEdit: () => _editField(
+                          title: 'User ID',
+                          currentValue: _googleId,
+                          onSave: (value) => _googleId = value,
+                        ),
                       ),
                     ],
                   ),
@@ -116,11 +236,13 @@ class _ProfileField extends StatelessWidget {
     required this.label,
     required this.value,
     required this.icon,
+    required this.onEdit,
   });
 
   final String label;
   final String value;
   final IconData icon;
+  final VoidCallback onEdit;
 
   @override
   Widget build(BuildContext context) {
@@ -156,6 +278,15 @@ class _ProfileField extends StatelessWidget {
                   ),
                 ),
               ],
+            ),
+          ),
+          IconButton(
+            tooltip: 'Edit $label',
+            onPressed: onEdit,
+            icon: const Icon(
+              Icons.edit_rounded,
+              size: 18,
+              color: Color(0xFF725D49),
             ),
           ),
         ],
