@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/api_client.dart';
 import '../../models/menu_models.dart';
 import 'menu_editor_page.dart';
+import '../profile/profile_page.dart';
 
 class MenuListScreen extends StatefulWidget {
   const MenuListScreen({super.key});
@@ -23,7 +24,20 @@ class _MenuListScreenState extends State<MenuListScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Menus')),
+      appBar: AppBar(
+        title: const Text('Menus'),
+        actions: [
+          IconButton(
+            tooltip: 'Profile',
+            onPressed: () {
+              Navigator.of(
+                context,
+              ).push(MaterialPageRoute(builder: (_) => const ProfilePage()));
+            },
+            icon: const Icon(Icons.account_circle_rounded),
+          ),
+        ],
+      ),
       body: FutureBuilder<List<MenuSummary>>(
         future: _future,
         builder: (context, snapshot) {
