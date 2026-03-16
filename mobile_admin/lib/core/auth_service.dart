@@ -13,9 +13,8 @@ class AuthService {
     clientId: kIsWeb && ApiConfig.googleClientId.isNotEmpty
         ? ApiConfig.googleClientId
         : null,
-    serverClientId: kIsWeb && ApiConfig.googleClientId.isNotEmpty
-        ? ApiConfig.googleClientId
-        : null,
+    serverClientId:
+        ApiConfig.googleClientId.isNotEmpty ? ApiConfig.googleClientId : null,
   );
 
   static Stream<GoogleSignInAccount?> get onCurrentUserChanged =>

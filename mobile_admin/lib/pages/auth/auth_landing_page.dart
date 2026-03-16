@@ -638,7 +638,7 @@ class _AuthCard extends StatelessWidget {
                 borderRadius: BorderRadius.circular(16),
               ),
             ),
-            onPressed: (isBusy || (kIsWeb && ApiConfig.googleClientId.isEmpty))
+            onPressed: (isBusy || ApiConfig.googleClientId.isEmpty)
                 ? null
                 : onGoogleLogin,
             child: isBusy
@@ -648,15 +648,17 @@ class _AuthCard extends StatelessWidget {
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
                 : Text(
-                    (kIsWeb && ApiConfig.googleClientId.isEmpty)
+                    ApiConfig.googleClientId.isEmpty
                         ? 'Google client ID missing'
                         : 'Continue with Google',
                   ),
           ),
-          if (kIsWeb && ApiConfig.googleClientId.isEmpty) ...[
+          if (ApiConfig.googleClientId.isEmpty) ...[
             const SizedBox(height: 8),
             Text(
-              'Set GOOGLE_CLIENT_ID via --dart-define or fill the web/index.html meta tag.',
+              kIsWeb
+                  ? 'Set GOOGLE_CLIENT_ID via --dart-define or fill the web/index.html meta tag.'
+                  : 'Set GOOGLE_CLIENT_ID via --dart-define when building or running the app.',
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
             ),
