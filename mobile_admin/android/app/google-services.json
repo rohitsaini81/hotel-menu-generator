@@ -22,7 +22,15 @@
           }
         },
         {
-          "client_id": "267308856621-iatjk5pb7klfjr8odh2c4lavj7su0e92.apps.googleusercontent.com",
+          "client_id": "267308856621-g6s76o3bg8b1j1uj9srq59iog35vqkbo.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.rohit.mobile_admin",
+            "certificate_hash": "147b965b21d831d3710ba3e5e8f8b451cca803fb"
+          }
+        },
+        {
+          "client_id": "267308856621-hvevqj2hmuin74vm2jar9gsi8dcsr0ub.apps.googleusercontent.com",
           "client_type": 3
         }
       ],
@@ -35,7 +43,7 @@
         "appinvite_service": {
           "other_platform_oauth_client": [
             {
-              "client_id": "267308856621-iatjk5pb7klfjr8odh2c4lavj7su0e92.apps.googleusercontent.com",
+              "client_id": "267308856621-hvevqj2hmuin74vm2jar9gsi8dcsr0ub.apps.googleusercontent.com",
               "client_type": 3
             }
           ]

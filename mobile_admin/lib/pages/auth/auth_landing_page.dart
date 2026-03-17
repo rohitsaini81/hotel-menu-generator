@@ -6,7 +6,6 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
-import '../../core/api_config.dart';
 import '../../core/auth_service.dart';
 import '../menus/menu_list_page.dart';
 
@@ -21,8 +20,7 @@ class _AuthLandingState extends State<AuthLanding>
     with SingleTickerProviderStateMixin {
   bool isLogin = true;
   bool _isAuthBusy = false;
-  late final StreamSubscription<GoogleSignInAccount?>
-      _googleUserSubscription;
+  late final StreamSubscription<GoogleSignInAccount?> _googleUserSubscription;
 
   late final AnimationController _bgController = AnimationController(
     vsync: this,
@@ -33,8 +31,9 @@ class _AuthLandingState extends State<AuthLanding>
   void initState() {
     super.initState();
     AuthService.ensureInitialized();
-    _googleUserSubscription =
-        AuthService.onCurrentUserChanged.listen((account) {
+    _googleUserSubscription = AuthService.onCurrentUserChanged.listen((
+      account,
+    ) {
       if (!kIsWeb || account == null) {
         return;
       }
@@ -98,6 +97,7 @@ class _AuthLandingState extends State<AuthLanding>
                                         isLogin: isLogin,
                                         isBusy: _isAuthBusy,
                                         onGoogleLogin: _handleGoogleLogin,
+                                        onTesterLogin: _handleTesterLogin,
                                         onToggle: () =>
                                             setState(() => isLogin = !isLogin),
                                       ),
@@ -105,7 +105,8 @@ class _AuthLandingState extends State<AuthLanding>
                                   ],
                                 )
                               : Column(
-                                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.stretch,
                                   children: [
                                     _BrandPanel(isLogin: isLogin),
                                     const SizedBox(height: 20),
@@ -113,6 +114,7 @@ class _AuthLandingState extends State<AuthLanding>
                                       isLogin: isLogin,
                                       isBusy: _isAuthBusy,
                                       onGoogleLogin: _handleGoogleLogin,
+                                      onTesterLogin: _handleTesterLogin,
                                       onToggle: () =>
                                           setState(() => isLogin = !isLogin),
                                     ),
@@ -141,9 +143,9 @@ class _AuthLandingState extends State<AuthLanding>
       if (!mounted) {
         return;
       }
-      Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => const MenuListScreen()),
-      );
+      Navigator.of(
+        context,
+      ).push(MaterialPageRoute(builder: (_) => const MenuListScreen()));
     } catch (error) {
       if (!mounted) {
         return;
@@ -161,6 +163,16 @@ class _AuthLandingState extends State<AuthLanding>
     }
   }
 
+  Future<void> _handleTesterLogin() async {
+    AuthService.signInAsTester();
+    if (!mounted) {
+      return;
+    }
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => const MenuListScreen()));
+  }
+
   Future<void> _handleGoogleAccount(GoogleSignInAccount account) async {
     if (_isAuthBusy) {
       return;
@@ -171,9 +183,9 @@ class _AuthLandingState extends State<AuthLanding>
       if (!mounted) {
         return;
       }
-      Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => const MenuListScreen()),
-      );
+      Navigator.of(
+        context,
+      ).push(MaterialPageRoute(builder: (_) => const MenuListScreen()));
     } catch (error) {
       if (!mounted) {
         return;
@@ -200,11 +212,7 @@ class _AuroraBackground extends StatelessWidget {
     return Container(
       decoration: const BoxDecoration(
         gradient: LinearGradient(
-          colors: [
-            Color(0xFFF6F1E8),
-            Color(0xFFE7EFE7),
-            Color(0xFFF3E7DA),
-          ],
+          colors: [Color(0xFFF6F1E8), Color(0xFFE7EFE7), Color(0xFFF3E7DA)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -237,9 +245,7 @@ class _FloatingGlow extends StatelessWidget {
           height: radius,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            gradient: RadialGradient(
-              colors: [color, Colors.transparent],
-            ),
+            gradient: RadialGradient(colors: [color, Colors.transparent]),
           ),
         ),
       ),
@@ -454,10 +460,7 @@ class _ActivityLogCard extends StatelessWidget {
               ),
               Text(
                 'Live',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey.shade600,
-                ),
+                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
               ),
             ],
           ),
@@ -510,10 +513,7 @@ class _LogEntry extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text(
                   subtitle,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey.shade600,
-                  ),
+                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
                 ),
               ],
             ),
@@ -529,12 +529,14 @@ class _AuthCard extends StatelessWidget {
     required this.isLogin,
     required this.onToggle,
     required this.onGoogleLogin,
+    required this.onTesterLogin,
     required this.isBusy,
   });
 
   final bool isLogin;
   final VoidCallback onToggle;
   final VoidCallback onGoogleLogin;
+  final VoidCallback onTesterLogin;
   final bool isBusy;
 
   @override
@@ -638,31 +640,21 @@ class _AuthCard extends StatelessWidget {
                 borderRadius: BorderRadius.circular(16),
               ),
             ),
+<<<<<<< HEAD
             onPressed: (isBusy || ApiConfig.googleClientId.isEmpty)
                 ? null
                 : onGoogleLogin,
+=======
+            onPressed: isBusy ? null : onGoogleLogin,
+>>>>>>> 6b956daa77f60e135a7b547b23277d6eaff7a888
             child: isBusy
                 ? const SizedBox(
                     height: 18,
                     width: 18,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                : Text(
-                    ApiConfig.googleClientId.isEmpty
-                        ? 'Google client ID missing'
-                        : 'Continue with Google',
-                  ),
+                : const Text('Continue with Google'),
           ),
-          if (ApiConfig.googleClientId.isEmpty) ...[
-            const SizedBox(height: 8),
-            Text(
-              kIsWeb
-                  ? 'Set GOOGLE_CLIENT_ID via --dart-define or fill the web/index.html meta tag.'
-                  : 'Set GOOGLE_CLIENT_ID via --dart-define when building or running the app.',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
-            ),
-          ],
           const SizedBox(height: 12),
           OutlinedButton(
             style: OutlinedButton.styleFrom(
@@ -686,11 +678,7 @@ class _AuthCard extends StatelessWidget {
                 borderRadius: BorderRadius.circular(16),
               ),
             ),
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const MenuListScreen()),
-              );
-            },
+            onPressed: onTesterLogin,
             child: const Text('Login as tester'),
           ),
           const SizedBox(height: 16),
@@ -698,9 +686,7 @@ class _AuthCard extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Text(
-                isLogin
-                    ? 'New to Aurora Bay? '
-                    : 'Already have access? ',
+                isLogin ? 'New to Aurora Bay? ' : 'Already have access? ',
                 style: TextStyle(color: Colors.grey.shade600),
               ),
               TextButton(
@@ -833,10 +819,7 @@ class _RowField extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 8),
-          const Text(
-            'Secure session ready',
-            style: TextStyle(fontSize: 12),
-          ),
+          const Text('Secure session ready', style: TextStyle(fontSize: 12)),
         ],
       ),
     );
@@ -862,21 +845,14 @@ class _RowField extends StatelessWidget {
       children: [
         Expanded(child: statusChip),
         const SizedBox(width: 12),
-        TextButton(
-          onPressed: () {},
-          child: const Text('Forgot code?'),
-        ),
+        TextButton(onPressed: () {}, child: const Text('Forgot code?')),
       ],
     );
   }
 }
 
 class _Field extends StatelessWidget {
-  const _Field({
-    required this.label,
-    required this.hint,
-    this.obscure = false,
-  });
+  const _Field({required this.label, required this.hint, this.obscure = false});
 
   final String label;
   final String hint;
@@ -886,10 +862,7 @@ class _Field extends StatelessWidget {
   Widget build(BuildContext context) {
     return TextField(
       obscureText: obscure,
-      decoration: InputDecoration(
-        labelText: label,
-        hintText: hint,
-      ),
+      decoration: InputDecoration(labelText: label, hintText: hint),
     );
   }
 }
@@ -941,16 +914,10 @@ class _MotionBanner extends StatelessWidget {
               Positioned.fill(
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(18),
-                  child: CustomPaint(
-                    painter: _WavePainter(),
-                  ),
+                  child: CustomPaint(painter: _WavePainter()),
                 ),
               ),
-              Positioned(
-                left: width * 0.12,
-                top: 22,
-                child: const _ArcBadge(),
-              ),
+              Positioned(left: width * 0.12, top: 22, child: const _ArcBadge()),
               Positioned(
                 right: 22,
                 top: 26,
