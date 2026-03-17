@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
+import '../../core/api_config.dart';
 import '../../core/auth_service.dart';
 import '../menus/menu_list_page.dart';
 
@@ -640,13 +641,9 @@ class _AuthCard extends StatelessWidget {
                 borderRadius: BorderRadius.circular(16),
               ),
             ),
-<<<<<<< HEAD
             onPressed: (isBusy || ApiConfig.googleClientId.isEmpty)
                 ? null
                 : onGoogleLogin,
-=======
-            onPressed: isBusy ? null : onGoogleLogin,
->>>>>>> 6b956daa77f60e135a7b547b23277d6eaff7a888
             child: isBusy
                 ? const SizedBox(
                     height: 18,
