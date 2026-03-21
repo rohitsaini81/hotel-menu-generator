@@ -130,7 +130,7 @@ class _MenuListScreenState extends State<MenuListScreen> {
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
-                      onPressed: () {
+                      onPressed: () async {
                         final name = nameController.text.trim();
                         if (name.isEmpty) {
                           ScaffoldMessenger.of(context).showSnackBar(
@@ -140,15 +140,34 @@ class _MenuListScreenState extends State<MenuListScreen> {
                           );
                           return;
                         }
-                        // TODO: Call backend to create menu and navigate to editor.
-                        Navigator.of(context).pop();
-                        ScaffoldMessenger.of(this.context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              'Would create menu for "$name" (not wired yet).',
+                        final hours = hoursController.text.trim().isEmpty
+                            ? '24/7'
+                            : hoursController.text.trim();
+                        try {
+                          final menu = await ApiClient.createMenu(
+                            hotelName: name,
+                            currency: selectedCurrency,
+                            hours: hours,
+                          );
+                          if (!mounted) return;
+                          Navigator.of(context).pop();
+                          Navigator.of(this.context).push(
+                            MaterialPageRoute(
+                              builder: (_) =>
+                                  MenuEditorScreen(menuId: menu.id),
                             ),
-                          ),
-                        );
+                          );
+                          setState(() {
+                            _future = ApiClient.listMenus();
+                          });
+                        } catch (error) {
+                          if (!mounted) return;
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Failed to create menu: $error'),
+                            ),
+                          );
+                        }
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFFC4532D),
