@@ -14,11 +14,12 @@ class MenuListScreen extends StatefulWidget {
 
 class _MenuListScreenState extends State<MenuListScreen> {
   late Future<List<MenuSummary>> _future;
+  static const int _testerUserId = 1;
 
   @override
   void initState() {
     super.initState();
-    _future = ApiClient.listMenus();
+    _future = ApiClient.listMenus(userId: _testerUserId);
   }
 
   void _showCreateMenuSheet() {
@@ -148,6 +149,7 @@ class _MenuListScreenState extends State<MenuListScreen> {
                             hotelName: name,
                             currency: selectedCurrency,
                             hours: hours,
+                            userId: _testerUserId,
                           );
                           if (!mounted) return;
                           Navigator.of(context).pop();
