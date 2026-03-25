@@ -1,13 +1,13 @@
 import os
 from pathlib import Path
 
+import jwt
 from flask import Flask, abort, jsonify, redirect, request, send_from_directory
 from psycopg import connect
 from psycopg.types.json import Jsonb
 from psycopg.rows import dict_row
 
 from lib_functions_python.auth_google import (
-    build_user_payload,
     create_session_jwt,
     exchange_google_code,
     load_google_auth_config,
@@ -21,16 +21,6 @@ DEFAULT_MENU_ID = "b948064d"
 
 app = Flask(__name__)
 EMAIL_OTP_CODE = "123467"
-
-
-def _build_auth_response(google_payload: dict, jwt_secret: str) -> dict:
-    user_payload = build_user_payload(google_payload)
-    session = create_session_jwt(user_payload, jwt_secret)
-    return {
-        "token": session["token"],
-        "user": user_payload,
-        "expiresAt": session["expires_at"],
-    }
 
 
 def _build_session_response(user_payload: dict, jwt_secret: str) -> dict:
@@ -47,6 +37,27 @@ def _load_jwt_secret() -> str:
     if not jwt_secret:
         abort(500, description="JWT_SECRET is not configured")
     return jwt_secret
+
+
+def _require_authenticated_user_id() -> int:
+    auth_header = request.headers.get("Authorization", "").strip()
+    if not auth_header.startswith("Bearer "):
+        abort(401, description="Missing bearer token")
+    token = auth_header.split(" ", 1)[1].strip()
+    if not token:
+        abort(401, description="Missing bearer token")
+
+    jwt_secret = _load_jwt_secret()
+    try:
+        payload = jwt.decode(token, jwt_secret, algorithms=["HS256"])
+    except jwt.PyJWTError:
+        abort(401, description="Invalid token")
+
+    user_id = payload.get("sub")
+    try:
+        return int(str(user_id))
+    except (TypeError, ValueError):
+        abort(401, description="Invalid token subject")
 
 
 def _find_registered_user_by_email(email: str) -> dict | None:
@@ -127,6 +138,43 @@ def get_menu_from_db(menu_id: str) -> dict:
     return _serialize_menu_row(row)
 
 
+def _get_menu_for_user(menu_id: str, user_id: int) -> dict:
+    if not DATABASE_URL:
+        abort(500, description="DATABASE_URL is not configured")
+
+    query = """
+        SELECT
+            id,
+            hotel,
+            categories,
+            category_aliases,
+            items,
+            labels,
+            created_at,
+            updated_at
+        FROM menus
+        WHERE
+            (
+                id::text = %(menu_id)s
+                OR hotel->>'id' = %(menu_id)s
+                OR hotel->>'menu_id' = %(menu_id)s
+                OR hotel->>'slug' = %(menu_id)s
+            )
+            AND user_id = %(user_id)s
+        ORDER BY updated_at DESC
+        LIMIT 1
+    """
+
+    with connect(DATABASE_URL, row_factory=dict_row) as conn:
+        with conn.cursor() as cur:
+            cur.execute(query, {"menu_id": menu_id, "user_id": user_id})
+            row = cur.fetchone()
+
+    if not row:
+        abort(404, description="Menu not found")
+    return _serialize_menu_row(row)
+
+
 @app.get("/api/menu/<menu_id>")
 def get_menu(menu_id: str):
     return jsonify(get_menu_from_db(menu_id))
@@ -143,7 +191,13 @@ def google_login():
         google_payload = verify_google_id_token(id_token, config.client_id)
     except ValueError as exc:
         abort(400, description=str(exc))
-    return jsonify(_build_auth_response(google_payload, config.jwt_secret))
+    email = (google_payload.get("email") or "").strip().lower()
+    if not email:
+        abort(400, description="Google account email is missing")
+    user_payload = _find_registered_user_by_email(email)
+    if not user_payload:
+        abort(404, description="Email is not registered")
+    return jsonify(_build_session_response(user_payload, config.jwt_secret))
 
 
 @app.post("/api/auth/email/request-otp")
@@ -190,16 +244,20 @@ def google_callback():
         google_payload = verify_google_id_token(id_token, config.client_id)
     except ValueError as exc:
         abort(400, description=str(exc))
-    return jsonify(_build_auth_response(google_payload, config.jwt_secret))
+    email = (google_payload.get("email") or "").strip().lower()
+    if not email:
+        abort(400, description="Google account email is missing")
+    user_payload = _find_registered_user_by_email(email)
+    if not user_payload:
+        abort(404, description="Email is not registered")
+    return jsonify(_build_session_response(user_payload, config.jwt_secret))
 
 
 @app.get("/api/menus")
 def list_all_menus():
     if not DATABASE_URL:
         abort(500, description="DATABASE_URL is not configured")
-
-    # Optional filter by app_user id
-    user_id = request.args.get("userId")
+    user_id = _require_authenticated_user_id()
 
     base_query = """
         SELECT
@@ -214,10 +272,8 @@ def list_all_menus():
         FROM menus
     """
 
-    params: dict[str, object] = {}
-    if user_id is not None:
-        base_query += "\n        WHERE user_id = %(user_id)s"
-        params["user_id"] = int(user_id)
+    params: dict[str, object] = {"user_id": user_id}
+    base_query += "\n        WHERE user_id = %(user_id)s"
 
     base_query += "\n        ORDER BY updated_at DESC"
 
@@ -233,15 +289,13 @@ def list_all_menus():
 def create_menu():
     if not DATABASE_URL:
         abort(500, description="DATABASE_URL is not configured")
+    user_id = _require_authenticated_user_id()
     payload = request.get_json(silent=True) or {}
     hotel = payload.get("hotel")
     categories = payload.get("categories")
     items = payload.get("items")
-    user_id = payload.get("userId")
     if hotel is None or categories is None or items is None:
         abort(400, description="hotel, categories, and items are required")
-    if user_id is None:
-        abort(400, description="userId is required to create a menu")
     query = """
         INSERT INTO menus (
             hotel,
@@ -282,7 +336,7 @@ def create_menu():
                     "category_aliases": payload.get("categoryAliases", {}),
                     "items": items,
                     "labels": payload.get("labels", {}),
-                    "user_id": int(user_id),
+                    "user_id": user_id,
                 },
             )
             row = cur.fetchone()
@@ -291,13 +345,15 @@ def create_menu():
 
 @app.get("/api/menus/<menu_id>")
 def get_menu_by_id(menu_id: str):
-    return jsonify(get_menu_from_db(menu_id))
+    user_id = _require_authenticated_user_id()
+    return jsonify(_get_menu_for_user(menu_id, user_id))
 
 
 @app.put("/api/menus/<menu_id>")
 def replace_menu(menu_id: str):
     if not DATABASE_URL:
         abort(500, description="DATABASE_URL is not configured")
+    user_id = _require_authenticated_user_id()
     payload = request.get_json(silent=True) or {}
     hotel = payload.get("hotel")
     categories = payload.get("categories")
@@ -313,10 +369,13 @@ def replace_menu(menu_id: str):
             items = %(items)s,
             labels = %(labels)s,
             updated_at = NOW()
-        WHERE id::text = %(menu_id)s
-           OR hotel->>'id' = %(menu_id)s
-           OR hotel->>'menu_id' = %(menu_id)s
-           OR hotel->>'slug' = %(menu_id)s
+        WHERE (
+            id::text = %(menu_id)s
+            OR hotel->>'id' = %(menu_id)s
+            OR hotel->>'menu_id' = %(menu_id)s
+            OR hotel->>'slug' = %(menu_id)s
+        )
+          AND user_id = %(user_id)s
         RETURNING
             id,
             hotel,
@@ -333,6 +392,7 @@ def replace_menu(menu_id: str):
                 query,
                 {
                     "menu_id": menu_id,
+                    "user_id": user_id,
                     "hotel": hotel,
                     "categories": categories,
                     "category_aliases": payload.get("categoryAliases", {}),
@@ -350,9 +410,10 @@ def replace_menu(menu_id: str):
 def update_menu(menu_id: str):
     if not DATABASE_URL:
         abort(500, description="DATABASE_URL is not configured")
+    user_id = _require_authenticated_user_id()
     payload = request.get_json(silent=True) or {}
     fields = []
-    values = {"menu_id": menu_id}
+    values = {"menu_id": menu_id, "user_id": user_id}
     if "hotel" in payload:
         fields.append("hotel = %(hotel)s")
         values["hotel"] = payload.get("hotel")
@@ -374,10 +435,13 @@ def update_menu(menu_id: str):
     query = f"""
         UPDATE menus
         SET {", ".join(fields)}
-        WHERE id::text = %(menu_id)s
-           OR hotel->>'id' = %(menu_id)s
-           OR hotel->>'menu_id' = %(menu_id)s
-           OR hotel->>'slug' = %(menu_id)s
+        WHERE (
+            id::text = %(menu_id)s
+            OR hotel->>'id' = %(menu_id)s
+            OR hotel->>'menu_id' = %(menu_id)s
+            OR hotel->>'slug' = %(menu_id)s
+        )
+          AND user_id = %(user_id)s
         RETURNING
             id,
             hotel,
@@ -401,22 +465,26 @@ def update_menu(menu_id: str):
 def delete_menu(menu_id: str):
     if not DATABASE_URL:
         abort(500, description="DATABASE_URL is not configured")
+    user_id = _require_authenticated_user_id()
     query = """
         DELETE FROM menus
-        WHERE id::text = %(menu_id)s
-           OR hotel->>'id' = %(menu_id)s
-           OR hotel->>'menu_id' = %(menu_id)s
-           OR hotel->>'slug' = %(menu_id)s
+        WHERE (
+            id::text = %(menu_id)s
+            OR hotel->>'id' = %(menu_id)s
+            OR hotel->>'menu_id' = %(menu_id)s
+            OR hotel->>'slug' = %(menu_id)s
+        )
+          AND user_id = %(user_id)s
     """
     with connect(DATABASE_URL) as conn:
         with conn.cursor() as cur:
-            cur.execute(query, {"menu_id": menu_id})
+            cur.execute(query, {"menu_id": menu_id, "user_id": user_id})
             if cur.rowcount == 0:
                 abort(404, description="Menu not found")
     return jsonify({"status": "deleted"})
 
 
-def _get_menu_row(menu_id: str) -> dict:
+def _get_menu_row(menu_id: str, user_id: int) -> dict:
     query = """
         SELECT
             id,
@@ -428,33 +496,39 @@ def _get_menu_row(menu_id: str) -> dict:
             created_at,
             updated_at
         FROM menus
-        WHERE id::text = %(menu_id)s
-           OR hotel->>'id' = %(menu_id)s
-           OR hotel->>'menu_id' = %(menu_id)s
-           OR hotel->>'slug' = %(menu_id)s
+        WHERE (
+            id::text = %(menu_id)s
+            OR hotel->>'id' = %(menu_id)s
+            OR hotel->>'menu_id' = %(menu_id)s
+            OR hotel->>'slug' = %(menu_id)s
+        )
+          AND user_id = %(user_id)s
         ORDER BY updated_at DESC
         LIMIT 1
     """
     with connect(DATABASE_URL, row_factory=dict_row) as conn:
         with conn.cursor() as cur:
-            cur.execute(query, {"menu_id": menu_id})
+            cur.execute(query, {"menu_id": menu_id, "user_id": user_id})
             row = cur.fetchone()
     if not row:
         abort(404, description="Menu not found")
     return row
 
 
-def _save_menu_parts(menu_id: str, *, categories=None, items=None):
+def _save_menu_parts(menu_id: str, user_id: int, *, categories=None, items=None):
     query = """
         UPDATE menus
         SET
             categories = COALESCE(%(categories)s::jsonb, categories),
             items = COALESCE(%(items)s::jsonb, items),
             updated_at = NOW()
-        WHERE id::text = %(menu_id)s
-           OR hotel->>'id' = %(menu_id)s
-           OR hotel->>'menu_id' = %(menu_id)s
-           OR hotel->>'slug' = %(menu_id)s
+        WHERE (
+            id::text = %(menu_id)s
+            OR hotel->>'id' = %(menu_id)s
+            OR hotel->>'menu_id' = %(menu_id)s
+            OR hotel->>'slug' = %(menu_id)s
+        )
+          AND user_id = %(user_id)s
         RETURNING
             id,
             hotel,
@@ -471,6 +545,7 @@ def _save_menu_parts(menu_id: str, *, categories=None, items=None):
                 query,
                 {
                     "menu_id": menu_id,
+                    "user_id": user_id,
                     "categories": None if categories is None else Jsonb(categories),
                     "items": None if items is None else Jsonb(items),
                 },
@@ -485,24 +560,26 @@ def _save_menu_parts(menu_id: str, *, categories=None, items=None):
 def create_menu_item(menu_id: str):
     if not DATABASE_URL:
         abort(500, description="DATABASE_URL is not configured")
+    user_id = _require_authenticated_user_id()
     payload = request.get_json(silent=True) or {}
     item_id = payload.get("id")
     if not item_id:
         abort(400, description="Item id is required")
-    row = _get_menu_row(menu_id)
+    row = _get_menu_row(menu_id, user_id)
     items = row["items"] or []
     if any(item.get("id") == item_id for item in items):
         abort(409, description="Item already exists")
     items.append(payload)
-    return jsonify(_save_menu_parts(menu_id, items=items))
+    return jsonify(_save_menu_parts(menu_id, user_id, items=items))
 
 
 @app.put("/api/menus/<menu_id>/items/<item_id>")
 def update_menu_item(menu_id: str, item_id: str):
     if not DATABASE_URL:
         abort(500, description="DATABASE_URL is not configured")
+    user_id = _require_authenticated_user_id()
     payload = request.get_json(silent=True) or {}
-    row = _get_menu_row(menu_id)
+    row = _get_menu_row(menu_id, user_id)
     items = row["items"] or []
     updated = False
     for idx, item in enumerate(items):
@@ -512,43 +589,46 @@ def update_menu_item(menu_id: str, item_id: str):
             break
     if not updated:
         abort(404, description="Item not found")
-    return jsonify(_save_menu_parts(menu_id, items=items))
+    return jsonify(_save_menu_parts(menu_id, user_id, items=items))
 
 
 @app.delete("/api/menus/<menu_id>/items/<item_id>")
 def delete_menu_item(menu_id: str, item_id: str):
     if not DATABASE_URL:
         abort(500, description="DATABASE_URL is not configured")
-    row = _get_menu_row(menu_id)
+    user_id = _require_authenticated_user_id()
+    row = _get_menu_row(menu_id, user_id)
     items = row["items"] or []
     new_items = [item for item in items if item.get("id") != item_id]
     if len(new_items) == len(items):
         abort(404, description="Item not found")
-    return jsonify(_save_menu_parts(menu_id, items=new_items))
+    return jsonify(_save_menu_parts(menu_id, user_id, items=new_items))
 
 
 @app.post("/api/menus/<menu_id>/categories")
 def create_category(menu_id: str):
     if not DATABASE_URL:
         abort(500, description="DATABASE_URL is not configured")
+    user_id = _require_authenticated_user_id()
     payload = request.get_json(silent=True) or {}
     category_id = payload.get("id")
     if not category_id:
         abort(400, description="Category id is required")
-    row = _get_menu_row(menu_id)
+    row = _get_menu_row(menu_id, user_id)
     categories = row["categories"] or []
     if any(cat.get("id") == category_id for cat in categories):
         abort(409, description="Category already exists")
     categories.append(payload)
-    return jsonify(_save_menu_parts(menu_id, categories=categories))
+    return jsonify(_save_menu_parts(menu_id, user_id, categories=categories))
 
 
 @app.put("/api/menus/<menu_id>/categories/<category_id>")
 def update_category(menu_id: str, category_id: str):
     if not DATABASE_URL:
         abort(500, description="DATABASE_URL is not configured")
+    user_id = _require_authenticated_user_id()
     payload = request.get_json(silent=True) or {}
-    row = _get_menu_row(menu_id)
+    row = _get_menu_row(menu_id, user_id)
     categories = row["categories"] or []
     updated = False
     for idx, cat in enumerate(categories):
@@ -558,19 +638,20 @@ def update_category(menu_id: str, category_id: str):
             break
     if not updated:
         abort(404, description="Category not found")
-    return jsonify(_save_menu_parts(menu_id, categories=categories))
+    return jsonify(_save_menu_parts(menu_id, user_id, categories=categories))
 
 
 @app.delete("/api/menus/<menu_id>/categories/<category_id>")
 def delete_category(menu_id: str, category_id: str):
     if not DATABASE_URL:
         abort(500, description="DATABASE_URL is not configured")
-    row = _get_menu_row(menu_id)
+    user_id = _require_authenticated_user_id()
+    row = _get_menu_row(menu_id, user_id)
     categories = row["categories"] or []
     new_categories = [cat for cat in categories if cat.get("id") != category_id]
     if len(new_categories) == len(categories):
         abort(404, description="Category not found")
-    return jsonify(_save_menu_parts(menu_id, categories=new_categories))
+    return jsonify(_save_menu_parts(menu_id, user_id, categories=new_categories))
 
 
 @app.get("/")

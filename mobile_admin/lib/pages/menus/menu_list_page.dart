@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/api_client.dart';
+import '../../core/auth_service.dart';
 import '../../models/menu_models.dart';
 import 'menu_editor_page.dart';
 import '../profile/profile_page.dart';
@@ -14,12 +15,16 @@ class MenuListScreen extends StatefulWidget {
 
 class _MenuListScreenState extends State<MenuListScreen> {
   late Future<List<MenuSummary>> _future;
-  static const int _testerUserId = 1;
+
+  int get _currentUserId {
+    final profile = AuthService.currentProfile;
+    return int.tryParse(profile?.id ?? '') ?? 1;
+  }
 
   @override
   void initState() {
     super.initState();
-    _future = ApiClient.listMenus(userId: _testerUserId);
+    _future = ApiClient.listMenus();
   }
 
   void _showCreateMenuSheet() {
@@ -149,14 +154,13 @@ class _MenuListScreenState extends State<MenuListScreen> {
                             hotelName: name,
                             currency: selectedCurrency,
                             hours: hours,
-                            userId: _testerUserId,
+                            userId: _currentUserId,
                           );
                           if (!mounted) return;
                           Navigator.of(context).pop();
                           Navigator.of(this.context).push(
                             MaterialPageRoute(
-                              builder: (_) =>
-                                  MenuEditorScreen(menuId: menu.id),
+                              builder: (_) => MenuEditorScreen(menuId: menu.id),
                             ),
                           );
                           setState(() {
@@ -308,9 +312,7 @@ class _MenuListScreenState extends State<MenuListScreen> {
                                         ],
                                       ),
                                     ),
-                                    const Icon(
-                                      Icons.chevron_right_rounded,
-                                    ),
+                                    const Icon(Icons.chevron_right_rounded),
                                   ],
                                 ),
                               ),

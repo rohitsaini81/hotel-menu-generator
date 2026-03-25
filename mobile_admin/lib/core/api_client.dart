@@ -109,11 +109,9 @@ class ApiClient {
     return response;
   }
 
-  static Future<List<MenuSummary>> listMenus({int? userId}) async {
-    final uri = userId == null
-        ? Uri.parse('${ApiConfig.baseUrl}/api/menus')
-        : Uri.parse('${ApiConfig.baseUrl}/api/menus?userId=$userId');
-    final response = await _get(uri);
+  static Future<List<MenuSummary>> listMenus() async {
+    final uri = Uri.parse('${ApiConfig.baseUrl}/api/menus');
+    final response = await _get(uri, headers: _headers());
     if (response.statusCode != 200) {
       _throwRequestError('Failed to load menus', response);
     }
