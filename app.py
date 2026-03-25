@@ -90,6 +90,56 @@ def _find_registered_user_by_email(email: str) -> dict | None:
     return None
 
 
+def _find_or_create_google_user(google_payload: dict) -> dict:
+    if not DATABASE_URL:
+        abort(500, description="DATABASE_URL is not configured")
+
+    email = (google_payload.get("email") or "").strip().lower()
+    if not email:
+        abort(400, description="Google account email is missing")
+
+    existing_user = _find_registered_user_by_email(email)
+    if existing_user:
+        return existing_user
+
+    display_name = (google_payload.get("name") or "").strip()
+    if not display_name:
+        display_name = email.split("@", 1)[0]
+
+    with connect(DATABASE_URL, row_factory=dict_row) as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                    INSERT INTO app_user (
+                        user_type_id,
+                        name,
+                        email,
+                        password_hash,
+                        is_active
+                    ) VALUES (
+                        3,
+                        %(name)s,
+                        %(email)s,
+                        %(password_hash)s,
+                        TRUE
+                    )
+                    RETURNING id::text AS user_id, name, email
+                """,
+                {
+                    "name": display_name,
+                    "email": email,
+                    "password_hash": "google_oauth_no_password",
+                },
+            )
+            row = cur.fetchone()
+    return {
+        "id": row.get("user_id", ""),
+        "email": row.get("email", ""),
+        "name": row.get("name", ""),
+        "picture": google_payload.get("picture", "") or "",
+    }
+
+
 def _serialize_menu_row(row: dict) -> dict:
     return {
         "id": str(row["id"]),
@@ -191,12 +241,7 @@ def google_login():
         google_payload = verify_google_id_token(id_token, config.client_id)
     except ValueError as exc:
         abort(400, description=str(exc))
-    email = (google_payload.get("email") or "").strip().lower()
-    if not email:
-        abort(400, description="Google account email is missing")
-    user_payload = _find_registered_user_by_email(email)
-    if not user_payload:
-        abort(404, description="Email is not registered")
+    user_payload = _find_or_create_google_user(google_payload)
     return jsonify(_build_session_response(user_payload, config.jwt_secret))
 
 
@@ -244,12 +289,7 @@ def google_callback():
         google_payload = verify_google_id_token(id_token, config.client_id)
     except ValueError as exc:
         abort(400, description=str(exc))
-    email = (google_payload.get("email") or "").strip().lower()
-    if not email:
-        abort(400, description="Google account email is missing")
-    user_payload = _find_registered_user_by_email(email)
-    if not user_payload:
-        abort(404, description="Email is not registered")
+    user_payload = _find_or_create_google_user(google_payload)
     return jsonify(_build_session_response(user_payload, config.jwt_secret))
 
 
