@@ -10,8 +10,9 @@ from psycopg.rows import dict_row
 from lib_functions_python.auth_google import (
     create_session_jwt,
     exchange_google_code,
+    load_allowed_google_client_ids,
     load_google_auth_config,
-    verify_google_id_token,
+    verify_google_id_token_any,
 )
 
 DATABASE_URL = os.environ.get("DATABASE_URL")
@@ -238,7 +239,8 @@ def google_login():
         abort(400, description="idToken is required")
     try:
         config = load_google_auth_config()
-        google_payload = verify_google_id_token(id_token, config.client_id)
+        allowed_client_ids = load_allowed_google_client_ids(config.client_id)
+        google_payload = verify_google_id_token_any(id_token, allowed_client_ids)
     except ValueError as exc:
         abort(400, description=str(exc))
     user_payload = _find_or_create_google_user(google_payload)
@@ -286,7 +288,8 @@ def google_callback():
         id_token = token_data.get("id_token")
         if not id_token:
             abort(400, description="Missing id_token from Google")
-        google_payload = verify_google_id_token(id_token, config.client_id)
+        allowed_client_ids = load_allowed_google_client_ids(config.client_id)
+        google_payload = verify_google_id_token_any(id_token, allowed_client_ids)
     except ValueError as exc:
         abort(400, description=str(exc))
     user_payload = _find_or_create_google_user(google_payload)

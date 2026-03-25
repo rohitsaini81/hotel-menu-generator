@@ -4,7 +4,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
+import json
 import os
+from pathlib import Path
 from typing import Any
 
 import jwt
@@ -55,6 +57,49 @@ def verify_google_id_token(token: str, client_id: str) -> dict[str, Any]:
         )
     except Exception as exc:  # pragma: no cover - relies on google auth internals
         raise ValueError("Invalid Google id token") from exc
+
+
+def load_allowed_google_client_ids(primary_client_id: str) -> list[str]:
+    ids: list[str] = []
+    if primary_client_id:
+        ids.append(primary_client_id.strip())
+
+    extra_env = os.environ.get("GOOGLE_ANDROID_CLIENT_IDS", "")
+    for value in extra_env.split(","):
+        candidate = value.strip()
+        if candidate and candidate not in ids:
+            ids.append(candidate)
+
+    # Local fallback for this repo layout; ignored if file is absent/malformed.
+    google_services_path = Path(__file__).resolve().parent.parent / "mobile_admin" / "android" / "app" / "google-services.json"
+    if google_services_path.exists():
+        try:
+            payload = json.loads(google_services_path.read_text(encoding="utf-8"))
+            clients = payload.get("client") or []
+            for client in clients:
+                oauth_clients = client.get("oauth_client") or []
+                for oauth_client in oauth_clients:
+                    if oauth_client.get("client_type") != 1:
+                        continue
+                    client_id = (oauth_client.get("client_id") or "").strip()
+                    if client_id and client_id not in ids:
+                        ids.append(client_id)
+        except Exception:
+            pass
+
+    return ids
+
+
+def verify_google_id_token_any(token: str, client_ids: list[str]) -> dict[str, Any]:
+    if not client_ids:
+        raise ValueError("No allowed Google client ids configured")
+    last_error: Exception | None = None
+    for client_id in client_ids:
+        try:
+            return verify_google_id_token(token, client_id)
+        except ValueError as exc:
+            last_error = exc
+    raise ValueError("Invalid Google id token") from last_error
 
 
 def exchange_google_code(code: str, config: GoogleAuthConfig) -> dict[str, Any]:
