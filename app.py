@@ -121,7 +121,10 @@ def list_all_menus():
     if not DATABASE_URL:
         abort(500, description="DATABASE_URL is not configured")
 
-    query = """
+    # Optional filter by app_user id
+    user_id = request.args.get("userId")
+
+    base_query = """
         SELECT
             id,
             hotel,
@@ -132,12 +135,18 @@ def list_all_menus():
             created_at,
             updated_at
         FROM menus
-        ORDER BY updated_at DESC
     """
+
+    params: dict[str, object] = {}
+    if user_id is not None:
+        base_query += "\n        WHERE user_id = %(user_id)s"
+        params["user_id"] = int(user_id)
+
+    base_query += "\n        ORDER BY updated_at DESC"
 
     with connect(DATABASE_URL, row_factory=dict_row) as conn:
         with conn.cursor() as cur:
-            cur.execute(query)
+            cur.execute(base_query, params)
             rows = cur.fetchall()
 
     return jsonify([_serialize_menu_row(row) for row in rows])
@@ -151,8 +160,11 @@ def create_menu():
     hotel = payload.get("hotel")
     categories = payload.get("categories")
     items = payload.get("items")
+    user_id = payload.get("userId")
     if hotel is None or categories is None or items is None:
         abort(400, description="hotel, categories, and items are required")
+    if user_id is None:
+        abort(400, description="userId is required to create a menu")
     query = """
         INSERT INTO menus (
             hotel,
@@ -160,6 +172,7 @@ def create_menu():
             category_aliases,
             items,
             labels,
+            user_id,
             created_at,
             updated_at
         ) VALUES (
@@ -168,6 +181,7 @@ def create_menu():
             %(category_aliases)s,
             %(items)s,
             %(labels)s,
+            %(user_id)s,
             NOW(),
             NOW()
         )
@@ -191,6 +205,7 @@ def create_menu():
                     "category_aliases": payload.get("categoryAliases", {}),
                     "items": items,
                     "labels": payload.get("labels", {}),
+                    "user_id": int(user_id),
                 },
             )
             row = cur.fetchone()

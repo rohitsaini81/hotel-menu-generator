@@ -26,6 +26,7 @@ class MenuSummary {
 
 class MenuData {
   MenuData({
+    required this.id,
     required this.hotel,
     required this.categories,
     required this.items,
@@ -33,6 +34,7 @@ class MenuData {
     required this.categoryAliases,
   });
 
+  final String id;
   final HotelData hotel;
   final List<CategoryData> categories;
   final List<MenuItemData> items;
@@ -51,6 +53,7 @@ class MenuData {
         .reversed
         .toList();
     return MenuData(
+      id: json['id']?.toString() ?? '',
       hotel: HotelData.fromJson(json['hotel'] as Map<String, dynamic>),
       categories: categories,
       items: items,

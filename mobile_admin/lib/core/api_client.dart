@@ -109,8 +109,11 @@ class ApiClient {
     return response;
   }
 
-  static Future<List<MenuSummary>> listMenus() async {
-    final response = await _get(Uri.parse('${ApiConfig.baseUrl}/api/menus'));
+  static Future<List<MenuSummary>> listMenus({int? userId}) async {
+    final uri = userId == null
+        ? Uri.parse('${ApiConfig.baseUrl}/api/menus')
+        : Uri.parse('${ApiConfig.baseUrl}/api/menus?userId=$userId');
+    final response = await _get(uri);
     if (response.statusCode != 200) {
       _throwRequestError('Failed to load menus', response);
     }
@@ -124,6 +127,34 @@ class ApiClient {
     );
     if (response.statusCode != 200) {
       _throwRequestError('Failed to load menu', response);
+    }
+    return MenuData.fromJson(jsonDecode(response.body));
+  }
+
+  static Future<MenuData> createMenu({
+    required String hotelName,
+    required String currency,
+    required String hours,
+    required int userId,
+  }) async {
+    final uri = Uri.parse('${ApiConfig.baseUrl}/api/menus');
+    final headers = _headers(json: true);
+    final body = jsonEncode({
+      'hotel': {
+        'name': hotelName,
+        'tagline': '',
+        'currency': currency,
+        'hours': hours,
+      },
+      'categories': <dynamic>[],
+      'items': <dynamic>[],
+      'labels': <String, String>{},
+      'categoryAliases': <String, List<String>>{},
+      'userId': userId,
+    });
+    final response = await _post(uri, headers: headers, body: body);
+    if (response.statusCode != 201 && response.statusCode != 200) {
+      _throwRequestError('Failed to create menu', response);
     }
     return MenuData.fromJson(jsonDecode(response.body));
   }
