@@ -14,6 +14,14 @@
       },
       "oauth_client": [
         {
+          "client_id": "267308856621-297j1l9lpmevb0ig48jjdep42s2rgvq7.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.rohit.mobile_admin",
+            "certificate_hash": "93d23a6589bc0c08e9e7038708c31f521ce3fd02"
+          }
+        },
+        {
           "client_id": "267308856621-dh3ff3ddmukg9m7u9he8au350hp9b3nn.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
