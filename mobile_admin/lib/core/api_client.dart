@@ -175,7 +175,9 @@ class ApiClient {
     String itemId,
     MenuItemData item,
   ) async {
-    final uri = Uri.parse('${ApiConfig.baseUrl}/api/menus/$menuId/items/$itemId');
+    final uri = Uri.parse(
+      '${ApiConfig.baseUrl}/api/menus/$menuId/items/$itemId',
+    );
     final headers = _headers(json: true);
     final body = jsonEncode(item.toJson());
     final response = await _put(uri, headers: headers, body: body);
@@ -186,7 +188,9 @@ class ApiClient {
   }
 
   static Future<MenuData> deleteItem(String menuId, String itemId) async {
-    final uri = Uri.parse('${ApiConfig.baseUrl}/api/menus/$menuId/items/$itemId');
+    final uri = Uri.parse(
+      '${ApiConfig.baseUrl}/api/menus/$menuId/items/$itemId',
+    );
     final headers = _headers();
     final response = await _delete(uri, headers: headers);
     if (response.statusCode >= 400) {
@@ -233,6 +237,29 @@ class ApiClient {
     final response = await _post(uri, headers: headers, body: body);
     if (response.statusCode >= 400) {
       _throwRequestError('Google login failed', response);
+    }
+    final auth = AuthResponse.fromJson(jsonDecode(response.body));
+    authToken = auth.token;
+    return auth;
+  }
+
+  static Future<void> requestEmailOtp(String email) async {
+    final uri = Uri.parse('${ApiConfig.baseUrl}/api/auth/email/request-otp');
+    final headers = _headers(json: true);
+    final body = jsonEncode({'email': email});
+    final response = await _post(uri, headers: headers, body: body);
+    if (response.statusCode >= 400) {
+      _throwRequestError('Email OTP request failed', response);
+    }
+  }
+
+  static Future<AuthResponse> verifyEmailOtp(String email, String otp) async {
+    final uri = Uri.parse('${ApiConfig.baseUrl}/api/auth/email/verify-otp');
+    final headers = _headers(json: true);
+    final body = jsonEncode({'email': email, 'otp': otp});
+    final response = await _post(uri, headers: headers, body: body);
+    if (response.statusCode >= 400) {
+      _throwRequestError('Email OTP verification failed', response);
     }
     final auth = AuthResponse.fromJson(jsonDecode(response.body));
     authToken = auth.token;

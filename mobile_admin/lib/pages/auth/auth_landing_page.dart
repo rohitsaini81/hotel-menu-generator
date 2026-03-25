@@ -21,6 +21,7 @@ class _AuthLandingState extends State<AuthLanding>
     with SingleTickerProviderStateMixin {
   bool isLogin = true;
   bool _isAuthBusy = false;
+  final TextEditingController _emailController = TextEditingController();
   late final StreamSubscription<GoogleSignInAccount?> _googleUserSubscription;
 
   late final AnimationController _bgController = AnimationController(
@@ -45,6 +46,7 @@ class _AuthLandingState extends State<AuthLanding>
   @override
   void dispose() {
     _googleUserSubscription.cancel();
+    _emailController.dispose();
     _bgController.dispose();
     super.dispose();
   }
@@ -97,7 +99,9 @@ class _AuthLandingState extends State<AuthLanding>
                                       child: _AuthCard(
                                         isLogin: isLogin,
                                         isBusy: _isAuthBusy,
+                                        emailController: _emailController,
                                         onGoogleLogin: _handleGoogleLogin,
+                                        onEmailSignIn: _handleEmailSignIn,
                                         onTesterLogin: _handleTesterLogin,
                                         onToggle: () =>
                                             setState(() => isLogin = !isLogin),
@@ -114,7 +118,9 @@ class _AuthLandingState extends State<AuthLanding>
                                     _AuthCard(
                                       isLogin: isLogin,
                                       isBusy: _isAuthBusy,
+                                      emailController: _emailController,
                                       onGoogleLogin: _handleGoogleLogin,
+                                      onEmailSignIn: _handleEmailSignIn,
                                       onTesterLogin: _handleTesterLogin,
                                       onToggle: () =>
                                           setState(() => isLogin = !isLogin),
@@ -202,6 +208,92 @@ class _AuthLandingState extends State<AuthLanding>
         setState(() => _isAuthBusy = false);
       }
     }
+  }
+
+  Future<void> _handleEmailSignIn() async {
+    if (_isAuthBusy) {
+      return;
+    }
+    final email = _emailController.text.trim().toLowerCase();
+    final isValidEmail = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(email);
+    if (!isValidEmail) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Enter a valid email address.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    setState(() => _isAuthBusy = true);
+    try {
+      await AuthService.requestEmailOtp(email);
+      if (!mounted) {
+        return;
+      }
+
+      final otp = await _showOtpDialog();
+      if (otp == null || otp.isEmpty) {
+        return;
+      }
+
+      await AuthService.signInWithEmailOtp(email: email, otp: otp);
+      if (!mounted) {
+        return;
+      }
+      Navigator.of(
+        context,
+      ).push(MaterialPageRoute(builder: (_) => const MenuListScreen()));
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(error.toString()),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isAuthBusy = false);
+      }
+    }
+  }
+
+  Future<String?> _showOtpDialog() async {
+    final otpController = TextEditingController();
+    final otp = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Enter OTP'),
+          content: TextField(
+            controller: otpController,
+            keyboardType: TextInputType.number,
+            maxLength: 6,
+            decoration: const InputDecoration(
+              labelText: 'OTP',
+              hintText: '6 digit code',
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () =>
+                  Navigator.of(dialogContext).pop(otpController.text.trim()),
+              child: const Text('Verify OTP'),
+            ),
+          ],
+        );
+      },
+    );
+    otpController.dispose();
+    return otp;
   }
 }
 
@@ -530,14 +622,18 @@ class _AuthCard extends StatelessWidget {
     required this.isLogin,
     required this.onToggle,
     required this.onGoogleLogin,
+    required this.onEmailSignIn,
     required this.onTesterLogin,
+    required this.emailController,
     required this.isBusy,
   });
 
   final bool isLogin;
   final VoidCallback onToggle;
   final VoidCallback onGoogleLogin;
+  final VoidCallback onEmailSignIn;
   final VoidCallback onTesterLogin;
+  final TextEditingController emailController;
   final bool isBusy;
 
   @override
@@ -618,18 +714,51 @@ class _AuthCard extends StatelessWidget {
                 : const _SignupForm(key: ValueKey('signup')),
           ),
           const SizedBox(height: 18),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF0F2B3A),
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
+          if (isLogin) ...[
+            TextField(
+              controller: emailController,
+              enabled: !isBusy,
+              keyboardType: TextInputType.emailAddress,
+              decoration: const InputDecoration(
+                labelText: 'Email',
+                hintText: 'manager@aurorabay.com',
               ),
             ),
-            onPressed: () {},
-            child: Text(isLogin ? 'Enter workspace' : 'Create account'),
-          ),
+            const SizedBox(height: 12),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF0F2B3A),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+              ),
+              onPressed: isBusy ? null : onEmailSignIn,
+              child: isBusy
+                  ? const SizedBox(
+                      height: 18,
+                      width: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Text('Sign in with email'),
+            ),
+          ] else
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF0F2B3A),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+              ),
+              onPressed: () {},
+              child: const Text('Create account'),
+            ),
           const SizedBox(height: 12),
           OutlinedButton(
             style: OutlinedButton.styleFrom(
@@ -651,19 +780,6 @@ class _AuthCard extends StatelessWidget {
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
                 : const Text('Continue with Google'),
-          ),
-          const SizedBox(height: 12),
-          OutlinedButton(
-            style: OutlinedButton.styleFrom(
-              foregroundColor: const Color(0xFF0F2B3A),
-              side: const BorderSide(color: Color(0xFFE0D2C1)),
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-            ),
-            onPressed: () {},
-            child: const Text('Continue with hotel SSO'),
           ),
           const SizedBox(height: 12),
           OutlinedButton(

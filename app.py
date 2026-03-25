@@ -20,6 +20,7 @@ WEB_ROOT = (BASE_DIR / "hotel-menu").resolve()
 DEFAULT_MENU_ID = "b948064d"
 
 app = Flask(__name__)
+EMAIL_OTP_CODE = "123467"
 
 
 def _build_auth_response(google_payload: dict, jwt_secret: str) -> dict:
@@ -30,6 +31,52 @@ def _build_auth_response(google_payload: dict, jwt_secret: str) -> dict:
         "user": user_payload,
         "expiresAt": session["expires_at"],
     }
+
+
+def _build_session_response(user_payload: dict, jwt_secret: str) -> dict:
+    session = create_session_jwt(user_payload, jwt_secret)
+    return {
+        "token": session["token"],
+        "user": user_payload,
+        "expiresAt": session["expires_at"],
+    }
+
+
+def _load_jwt_secret() -> str:
+    jwt_secret = os.environ.get("JWT_SECRET")
+    if not jwt_secret:
+        abort(500, description="JWT_SECRET is not configured")
+    return jwt_secret
+
+
+def _find_registered_user_by_email(email: str) -> dict | None:
+    if not DATABASE_URL:
+        abort(500, description="DATABASE_URL is not configured")
+
+    with connect(DATABASE_URL, row_factory=dict_row) as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                    SELECT id::text AS user_id, name, email
+                    FROM app_user
+                    WHERE LOWER(email) = LOWER(%s)
+                      AND is_active = TRUE
+                      AND user_type_id = 3
+                    LIMIT 1
+                """,
+                (email,),
+            )
+            row = cur.fetchone()
+            if not row:
+                return None
+
+            return {
+                "id": row.get("user_id", ""),
+                "email": row.get("email", ""),
+                "name": row.get("name", ""),
+                "picture": "",
+            }
+    return None
 
 
 def _serialize_menu_row(row: dict) -> dict:
@@ -97,6 +144,36 @@ def google_login():
     except ValueError as exc:
         abort(400, description=str(exc))
     return jsonify(_build_auth_response(google_payload, config.jwt_secret))
+
+
+@app.post("/api/auth/email/request-otp")
+def email_request_otp():
+    payload = request.get_json(silent=True) or {}
+    email = (payload.get("email") or "").strip().lower()
+    if not email:
+        abort(400, description="email is required")
+    user_payload = _find_registered_user_by_email(email)
+    if not user_payload:
+        abort(404, description="Email is not registered")
+    return jsonify({"status": "otp_sent", "email": user_payload["email"]})
+
+
+@app.post("/api/auth/email/verify-otp")
+def email_verify_otp():
+    payload = request.get_json(silent=True) or {}
+    email = (payload.get("email") or "").strip().lower()
+    otp = str(payload.get("otp") or "").strip()
+    if not email:
+        abort(400, description="email is required")
+    if not otp:
+        abort(400, description="otp is required")
+    user_payload = _find_registered_user_by_email(email)
+    if not user_payload:
+        abort(404, description="Email is not registered")
+    if otp != EMAIL_OTP_CODE:
+        abort(401, description="Invalid OTP")
+    jwt_secret = _load_jwt_secret()
+    return jsonify(_build_session_response(user_payload, jwt_secret))
 
 
 @app.get("/api/auth/google/callback")

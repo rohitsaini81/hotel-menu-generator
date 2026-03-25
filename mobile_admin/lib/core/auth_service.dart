@@ -92,6 +92,25 @@ class AuthService {
     return authenticateAccount(account);
   }
 
+  static Future<void> requestEmailOtp(String email) async {
+    await ApiClient.requestEmailOtp(email);
+  }
+
+  static Future<AuthResponse> signInWithEmailOtp({
+    required String email,
+    required String otp,
+  }) async {
+    final response = await ApiClient.verifyEmailOtp(email, otp);
+    _currentProfile = SessionProfile(
+      id: response.user.id,
+      name: response.user.name.isNotEmpty ? response.user.name : email,
+      email: response.user.email.isNotEmpty ? response.user.email : email,
+      number: 'Not provided',
+      picture: response.user.picture,
+    );
+    return response;
+  }
+
   static void signInAsTester() {
     _currentProfile = const SessionProfile(
       id: 'tester',
