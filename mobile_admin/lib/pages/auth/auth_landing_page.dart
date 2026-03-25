@@ -20,7 +20,8 @@ class AuthLanding extends StatefulWidget {
 class _AuthLandingState extends State<AuthLanding>
     with SingleTickerProviderStateMixin {
   bool isLogin = true;
-  bool _isAuthBusy = false;
+  bool _isGoogleBusy = false;
+  bool _isEmailBusy = false;
   final TextEditingController _emailController = TextEditingController();
   late final StreamSubscription<GoogleSignInAccount?> _googleUserSubscription;
 
@@ -98,7 +99,9 @@ class _AuthLandingState extends State<AuthLanding>
                                     Expanded(
                                       child: _AuthCard(
                                         isLogin: isLogin,
-                                        isBusy: _isAuthBusy,
+                                        isBusy: _isGoogleBusy || _isEmailBusy,
+                                        isGoogleBusy: _isGoogleBusy,
+                                        isEmailBusy: _isEmailBusy,
                                         emailController: _emailController,
                                         onGoogleLogin: _handleGoogleLogin,
                                         onEmailSignIn: _handleEmailSignIn,
@@ -117,7 +120,9 @@ class _AuthLandingState extends State<AuthLanding>
                                     const SizedBox(height: 20),
                                     _AuthCard(
                                       isLogin: isLogin,
-                                      isBusy: _isAuthBusy,
+                                      isBusy: _isGoogleBusy || _isEmailBusy,
+                                      isGoogleBusy: _isGoogleBusy,
+                                      isEmailBusy: _isEmailBusy,
                                       emailController: _emailController,
                                       onGoogleLogin: _handleGoogleLogin,
                                       onEmailSignIn: _handleEmailSignIn,
@@ -141,10 +146,10 @@ class _AuthLandingState extends State<AuthLanding>
   }
 
   Future<void> _handleGoogleLogin() async {
-    if (_isAuthBusy) {
+    if (_isGoogleBusy || _isEmailBusy) {
       return;
     }
-    setState(() => _isAuthBusy = true);
+    setState(() => _isGoogleBusy = true);
     try {
       await AuthService.signInWithGoogle();
       if (!mounted) {
@@ -165,7 +170,7 @@ class _AuthLandingState extends State<AuthLanding>
       );
     } finally {
       if (mounted) {
-        setState(() => _isAuthBusy = false);
+        setState(() => _isGoogleBusy = false);
       }
     }
   }
@@ -181,10 +186,10 @@ class _AuthLandingState extends State<AuthLanding>
   }
 
   Future<void> _handleGoogleAccount(GoogleSignInAccount account) async {
-    if (_isAuthBusy) {
+    if (_isGoogleBusy || _isEmailBusy) {
       return;
     }
-    setState(() => _isAuthBusy = true);
+    setState(() => _isGoogleBusy = true);
     try {
       await AuthService.authenticateAccount(account);
       if (!mounted) {
@@ -205,13 +210,13 @@ class _AuthLandingState extends State<AuthLanding>
       );
     } finally {
       if (mounted) {
-        setState(() => _isAuthBusy = false);
+        setState(() => _isGoogleBusy = false);
       }
     }
   }
 
   Future<void> _handleEmailSignIn() async {
-    if (_isAuthBusy) {
+    if (_isGoogleBusy || _isEmailBusy) {
       return;
     }
     final email = _emailController.text.trim().toLowerCase();
@@ -226,7 +231,7 @@ class _AuthLandingState extends State<AuthLanding>
       return;
     }
 
-    setState(() => _isAuthBusy = true);
+    setState(() => _isEmailBusy = true);
     try {
       await AuthService.requestEmailOtp(email);
       if (!mounted) {
@@ -257,7 +262,7 @@ class _AuthLandingState extends State<AuthLanding>
       );
     } finally {
       if (mounted) {
-        setState(() => _isAuthBusy = false);
+        setState(() => _isEmailBusy = false);
       }
     }
   }
@@ -626,6 +631,8 @@ class _AuthCard extends StatelessWidget {
     required this.onTesterLogin,
     required this.emailController,
     required this.isBusy,
+    required this.isGoogleBusy,
+    required this.isEmailBusy,
   });
 
   final bool isLogin;
@@ -635,6 +642,8 @@ class _AuthCard extends StatelessWidget {
   final VoidCallback onTesterLogin;
   final TextEditingController emailController;
   final bool isBusy;
+  final bool isGoogleBusy;
+  final bool isEmailBusy;
 
   @override
   Widget build(BuildContext context) {
@@ -735,7 +744,7 @@ class _AuthCard extends StatelessWidget {
                 ),
               ),
               onPressed: isBusy ? null : onEmailSignIn,
-              child: isBusy
+              child: isEmailBusy
                   ? const SizedBox(
                       height: 18,
                       width: 18,
@@ -773,7 +782,7 @@ class _AuthCard extends StatelessWidget {
             onPressed: (isBusy || ApiConfig.googleClientId.isEmpty)
                 ? null
                 : onGoogleLogin,
-            child: isBusy
+            child: isGoogleBusy
                 ? const SizedBox(
                     height: 18,
                     width: 18,
