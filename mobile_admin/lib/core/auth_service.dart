@@ -111,6 +111,16 @@ class AuthService {
     return response;
   }
 
+  static Future<void> signOut() async {
+    ApiClient.authToken = null;
+    _currentProfile = null;
+    try {
+      await _googleSignIn.signOut();
+    } catch (_) {
+      // Ignore provider-specific sign-out failures; local session is cleared.
+    }
+  }
+
   static void signInAsTester() {
     _currentProfile = const SessionProfile(
       id: 'tester',

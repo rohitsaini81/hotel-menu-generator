@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/auth_service.dart';
+import '../auth/auth_landing_page.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -69,12 +70,32 @@ class _ProfilePageState extends State<ProfilePage> {
     setState(() => onSave(value));
   }
 
+  Future<void> _handleSignOut() async {
+    await AuthService.signOut();
+    if (!mounted) {
+      return;
+    }
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const AuthLanding()),
+      (route) => false,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final hasPicture = _picture.isNotEmpty;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Profile')),
+      appBar: AppBar(
+        title: const Text('Profile'),
+        actions: [
+          TextButton.icon(
+            onPressed: _handleSignOut,
+            icon: const Icon(Icons.logout_rounded),
+            label: const Text('Sign out'),
+          ),
+        ],
+      ),
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
@@ -217,6 +238,23 @@ class _ProfilePageState extends State<ProfilePage> {
                           title: 'User ID',
                           currentValue: _googleId,
                           onSave: (value) => _googleId = value,
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          onPressed: _handleSignOut,
+                          icon: const Icon(Icons.logout_rounded),
+                          label: const Text('Sign out'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: const Color(0xFF8D3C25),
+                            side: const BorderSide(color: Color(0xFFF0D6BF)),
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                          ),
                         ),
                       ),
                     ],
