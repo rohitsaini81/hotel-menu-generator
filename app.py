@@ -1,4 +1,5 @@
 import os
+import uuid
 from pathlib import Path
 
 import jwt
@@ -339,8 +340,10 @@ def create_menu():
     items = payload.get("items")
     if hotel is None or categories is None or items is None:
         abort(400, description="hotel, categories, and items are required")
+    menu_id = payload.get("id") or payload.get("menuId") or str(uuid.uuid4())
     query = """
         INSERT INTO menus (
+            id,
             hotel,
             categories,
             category_aliases,
@@ -350,6 +353,7 @@ def create_menu():
             created_at,
             updated_at
         ) VALUES (
+            %(id)s,
             %(hotel)s,
             %(categories)s,
             %(category_aliases)s,
@@ -374,6 +378,7 @@ def create_menu():
             cur.execute(
                 query,
                 {
+                    "id": menu_id,
                     "hotel": hotel,
                     "categories": categories,
                     "category_aliases": payload.get("categoryAliases", {}),
