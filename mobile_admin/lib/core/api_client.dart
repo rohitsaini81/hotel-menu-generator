@@ -122,6 +122,7 @@ class ApiClient {
   static Future<MenuData> getMenu(String menuId) async {
     final response = await _get(
       Uri.parse('${ApiConfig.baseUrl}/api/menus/$menuId'),
+      headers: _headers(),
     );
     if (response.statusCode != 200) {
       _throwRequestError('Failed to load menu', response);

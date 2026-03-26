@@ -28,168 +28,177 @@ class _MenuListScreenState extends State<MenuListScreen> {
   }
 
   void _showCreateMenuSheet() {
+    final nameController = TextEditingController();
+    final hoursController = TextEditingController(text: '24/7');
+    String selectedCurrency = 'USD';
+    const currencies = <String>['USD', 'INR', 'EUR', 'GBP', 'AED'];
+
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) {
         final theme = Theme.of(context);
-        final nameController = TextEditingController();
-        final hoursController = TextEditingController(text: '24/7');
-        String selectedCurrency = 'USD';
-        const currencies = <String>['USD', 'INR', 'EUR', 'GBP', 'AED'];
-
-        return FractionallySizedBox(
-          heightFactor: 0.5,
-          child: Container(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(24),
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.12),
-                  blurRadius: 20,
-                  offset: const Offset(0, -8),
-                ),
-              ],
-            ),
-            child: Padding(
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return AnimatedPadding(
+              duration: const Duration(milliseconds: 200),
+              curve: Curves.easeOut,
               padding: EdgeInsets.only(
-                left: 20,
-                right: 20,
-                top: 16,
-                bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+                bottom: MediaQuery.of(context).viewInsets.bottom,
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'Create Hotel Menu',
-                        style: theme.textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.close_rounded),
-                        onPressed: () => Navigator.of(context).pop(),
+              child: SafeArea(
+                top: false,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: const BorderRadius.vertical(
+                      top: Radius.circular(24),
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.12),
+                        blurRadius: 20,
+                        offset: const Offset(0, -8),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: nameController,
-                    decoration: const InputDecoration(
-                      labelText: 'Hotel name',
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: InputDecorator(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'Create Hotel Menu',
+                              style: theme.textTheme.titleLarge?.copyWith(
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.close_rounded),
+                              onPressed: () => Navigator.of(context).pop(),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        TextField(
+                          controller: nameController,
                           decoration: const InputDecoration(
-                            labelText: 'Currency',
+                            labelText: 'Hotel name',
                             border: OutlineInputBorder(),
                           ),
-                          child: DropdownButtonHideUnderline(
-                            child: DropdownButton<String>(
-                              isExpanded: true,
-                              value: selectedCurrency,
-                              items: currencies
-                                  .map(
-                                    (code) => DropdownMenuItem<String>(
-                                      value: code,
-                                      child: Text(code),
-                                    ),
-                                  )
-                                  .toList(),
-                              onChanged: (value) {
-                                if (value == null) return;
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: InputDecorator(
+                                decoration: const InputDecoration(
+                                  labelText: 'Currency',
+                                  border: OutlineInputBorder(),
+                                ),
+                                child: DropdownButtonHideUnderline(
+                                  child: DropdownButton<String>(
+                                    isExpanded: true,
+                                    value: selectedCurrency,
+                                    items: currencies
+                                        .map(
+                                          (code) => DropdownMenuItem<String>(
+                                            value: code,
+                                            child: Text(code),
+                                          ),
+                                        )
+                                        .toList(),
+                                    onChanged: (value) {
+                                      if (value == null) return;
+                                      setModalState(() {
+                                        selectedCurrency = value;
+                                      });
+                                    },
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              flex: 2,
+                              child: TextField(
+                                controller: hoursController,
+                                decoration: const InputDecoration(
+                                  labelText: 'Hours',
+                                  border: OutlineInputBorder(),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton(
+                            onPressed: () async {
+                              final name = nameController.text.trim();
+                              if (name.isEmpty) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Please enter a hotel name.'),
+                                  ),
+                                );
+                                return;
+                              }
+                              final hours = hoursController.text.trim().isEmpty
+                                  ? '24/7'
+                                  : hoursController.text.trim();
+                              try {
+                                final menu = await ApiClient.createMenu(
+                                  hotelName: name,
+                                  currency: selectedCurrency,
+                                  hours: hours,
+                                  userId: _currentUserId,
+                                );
+                                if (!mounted) return;
+                                Navigator.of(context).pop();
+                                Navigator.of(this.context).push(
+                                  MaterialPageRoute(
+                                    builder: (_) =>
+                                        MenuEditorScreen(menuId: menu.id),
+                                  ),
+                                );
                                 setState(() {
-                                  selectedCurrency = value;
+                                  _future = ApiClient.listMenus();
                                 });
-                              },
+                              } catch (error) {
+                                if (!mounted) return;
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content:
+                                        Text('Failed to create menu: $error'),
+                                  ),
+                                );
+                              }
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFFC4532D),
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
+                              ),
                             ),
+                            child: const Text('Continue'),
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        flex: 2,
-                        child: TextField(
-                          controller: hoursController,
-                          decoration: const InputDecoration(
-                            labelText: 'Hours',
-                            border: OutlineInputBorder(),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const Spacer(),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: () async {
-                        final name = nameController.text.trim();
-                        if (name.isEmpty) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Please enter a hotel name.'),
-                            ),
-                          );
-                          return;
-                        }
-                        final hours = hoursController.text.trim().isEmpty
-                            ? '24/7'
-                            : hoursController.text.trim();
-                        try {
-                          final menu = await ApiClient.createMenu(
-                            hotelName: name,
-                            currency: selectedCurrency,
-                            hours: hours,
-                            userId: _currentUserId,
-                          );
-                          if (!mounted) return;
-                          Navigator.of(context).pop();
-                          Navigator.of(this.context).push(
-                            MaterialPageRoute(
-                              builder: (_) => MenuEditorScreen(menuId: menu.id),
-                            ),
-                          );
-                          setState(() {
-                            _future = ApiClient.listMenus();
-                          });
-                        } catch (error) {
-                          if (!mounted) return;
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('Failed to create menu: $error'),
-                            ),
-                          );
-                        }
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFC4532D),
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                      ),
-                      child: const Text('Continue'),
+                      ],
                     ),
                   ),
-                ],
+                ),
               ),
-            ),
-          ),
+            );
+          },
         );
       },
     );

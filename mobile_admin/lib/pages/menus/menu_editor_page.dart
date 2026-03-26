@@ -708,8 +708,14 @@ class _MenuItemEditorState extends State<MenuItemEditor> {
         TextEditingController(text: initial?.calories.toString() ?? '');
     keywordsController =
         TextEditingController(text: initial?.keywords.join(', ') ?? '');
-    selectedCategory = initial?.category ?? widget.categories.first.id;
     categoryOptions = List<CategoryData>.from(widget.categories);
+    if (initial != null && initial.category.isNotEmpty) {
+      selectedCategory = initial.category;
+    } else if (categoryOptions.isNotEmpty) {
+      selectedCategory = categoryOptions.first.id;
+    } else {
+      selectedCategory = '__new__';
+    }
   }
 
   @override
@@ -726,6 +732,12 @@ class _MenuItemEditorState extends State<MenuItemEditor> {
 
   void _save() {
     if (!_formKey.currentState!.validate()) return;
+    if (selectedCategory.isEmpty || selectedCategory == '__new__') {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please create a category first.')),
+      );
+      return;
+    }
     final name = nameController.text.trim();
     final payload = MenuItemData(
       id: widget.initial?.id ?? slugify(name),
