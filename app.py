@@ -379,11 +379,11 @@ def create_menu():
                 query,
                 {
                     "id": menu_id,
-                    "hotel": hotel,
-                    "categories": categories,
-                    "category_aliases": payload.get("categoryAliases", {}),
-                    "items": items,
-                    "labels": payload.get("labels", {}),
+                    "hotel": Jsonb(hotel),
+                    "categories": Jsonb(categories),
+                    "category_aliases": Jsonb(payload.get("categoryAliases", {})),
+                    "items": Jsonb(items),
+                    "labels": Jsonb(payload.get("labels", {})),
                     "user_id": user_id,
                 },
             )
@@ -441,11 +441,11 @@ def replace_menu(menu_id: str):
                 {
                     "menu_id": menu_id,
                     "user_id": user_id,
-                    "hotel": hotel,
-                    "categories": categories,
-                    "category_aliases": payload.get("categoryAliases", {}),
-                    "items": items,
-                    "labels": payload.get("labels", {}),
+                    "hotel": Jsonb(hotel),
+                    "categories": Jsonb(categories),
+                    "category_aliases": Jsonb(payload.get("categoryAliases", {})),
+                    "items": Jsonb(items),
+                    "labels": Jsonb(payload.get("labels", {})),
                 },
             )
             row = cur.fetchone()
@@ -464,19 +464,19 @@ def update_menu(menu_id: str):
     values = {"menu_id": menu_id, "user_id": user_id}
     if "hotel" in payload:
         fields.append("hotel = %(hotel)s")
-        values["hotel"] = payload.get("hotel")
+        values["hotel"] = Jsonb(payload.get("hotel"))
     if "categories" in payload:
         fields.append("categories = %(categories)s")
-        values["categories"] = payload.get("categories")
+        values["categories"] = Jsonb(payload.get("categories"))
     if "categoryAliases" in payload:
         fields.append("category_aliases = %(category_aliases)s")
-        values["category_aliases"] = payload.get("categoryAliases")
+        values["category_aliases"] = Jsonb(payload.get("categoryAliases"))
     if "items" in payload:
         fields.append("items = %(items)s")
-        values["items"] = payload.get("items")
+        values["items"] = Jsonb(payload.get("items"))
     if "labels" in payload:
         fields.append("labels = %(labels)s")
-        values["labels"] = payload.get("labels")
+        values["labels"] = Jsonb(payload.get("labels"))
     if not fields:
         abort(400, description="No updatable fields provided")
     fields.append("updated_at = NOW()")
