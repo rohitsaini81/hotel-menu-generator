@@ -4,6 +4,7 @@ import '../../core/api_client.dart';
 import '../../core/auth_service.dart';
 import '../../models/menu_models.dart';
 import 'menu_editor_page.dart';
+import '../orders/order_page.dart';
 import '../profile/profile_page.dart';
 
 class MenuListScreen extends StatefulWidget {
@@ -14,7 +15,34 @@ class MenuListScreen extends StatefulWidget {
 }
 
 class _MenuListScreenState extends State<MenuListScreen> {
+  final _scaffoldKey = GlobalKey<ScaffoldState>();
   late Future<List<MenuSummary>> _future;
+  static const _notifications = <Map<String, Object>>[
+    {
+      'title': 'New room-service order received',
+      'time': 'Just now',
+      'message': 'Order #RB-2048 was placed from Room 804 and is waiting in the queue.',
+      'type': 'order',
+    },
+    {
+      'title': 'New dinner menu awaiting review',
+      'time': '2 min ago',
+      'message': 'Chef specials were updated for the rooftop service.',
+      'type': 'info',
+    },
+    {
+      'title': 'Breakfast pricing synced',
+      'time': '18 min ago',
+      'message': 'All room-service breakfast rates were refreshed.',
+      'type': 'info',
+    },
+    {
+      'title': 'Staff note from front desk',
+      'time': '1 hr ago',
+      'message': 'Guest allergy requests were added to tonight\'s briefing.',
+      'type': 'info',
+    },
+  ];
 
   int get _currentUserId {
     final profile = AuthService.currentProfile;
@@ -57,7 +85,7 @@ class _MenuListScreenState extends State<MenuListScreen> {
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.12),
+                        color: Colors.black.withValues(alpha: 0.12),
                         blurRadius: 20,
                         offset: const Offset(0, -8),
                       ),
@@ -204,12 +232,185 @@ class _MenuListScreenState extends State<MenuListScreen> {
     );
   }
 
+  void _openNotificationsPanel() {
+    _scaffoldKey.currentState?.openEndDrawer();
+  }
+
+  void _openOrdersPage() {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const OrderPage()),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      key: _scaffoldKey,
+      drawer: Drawer(
+        child: SafeArea(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Container(
+                padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
+                color: const Color(0xFFF6F1E8),
+                child: const Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Aurora Bay Admin',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    SizedBox(height: 6),
+                    Text('Navigation'),
+                  ],
+                ),
+              ),
+              ListTile(
+                leading: const Icon(Icons.restaurant_menu_rounded),
+                title: const Text('Menus'),
+                onTap: () => Navigator.of(context).pop(),
+              ),
+              ListTile(
+                leading: const Icon(Icons.receipt_long_rounded),
+                title: const Text('Orders'),
+                onTap: () {
+                  Navigator.of(context).pop();
+                  _openOrdersPage();
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.account_circle_rounded),
+                title: const Text('Profile'),
+                onTap: () {
+                  Navigator.of(context).pop();
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const ProfilePage()),
+                  );
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+      endDrawer: Drawer(
+        child: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(18, 20, 18, 18),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        'Notifications',
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () => Navigator.of(context).maybePop(),
+                      icon: const Icon(Icons.close_rounded),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Recent updates from your menu workspace',
+                  style: TextStyle(color: Colors.grey.shade600),
+                ),
+                const SizedBox(height: 18),
+                Expanded(
+                  child: ListView.separated(
+                    itemCount: _notifications.length,
+                    separatorBuilder: (_, index) => const SizedBox(height: 12),
+                    itemBuilder: (context, index) {
+                      final notification = _notifications[index];
+                      final isOrderNotification =
+                          notification['type'] == 'order';
+                      return Container(
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFDF9F3),
+                          borderRadius: BorderRadius.circular(18),
+                          border: Border.all(color: const Color(0xFFE7DED2)),
+                        ),
+                        child: Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(18),
+                            onTap: isOrderNotification
+                                ? () {
+                                    Navigator.of(context).pop();
+                                    _openOrdersPage();
+                                  }
+                                : null,
+                            child: Padding(
+                              padding: const EdgeInsets.all(16),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          notification['title']! as String,
+                                          style: const TextStyle(
+                                            fontSize: 15,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ),
+                                      if (isOrderNotification)
+                                        const Icon(
+                                          Icons.chevron_right_rounded,
+                                          size: 20,
+                                        ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    notification['message']! as String,
+                                    style: TextStyle(
+                                      color: Colors.grey.shade700,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 10),
+                                  Text(
+                                    notification['time']! as String,
+                                    style: TextStyle(
+                                      color: Colors.grey.shade500,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
       appBar: AppBar(
         title: const Text('Menus'),
         actions: [
+          IconButton(
+            tooltip: 'Notifications',
+            onPressed: _openNotificationsPanel,
+            icon: const Icon(Icons.notifications_none_rounded),
+          ),
           IconButton(
             tooltip: 'Profile',
             onPressed: () {
@@ -255,7 +456,7 @@ class _MenuListScreenState extends State<MenuListScreen> {
                         borderRadius: BorderRadius.circular(18),
                       ),
                       elevation: 4,
-                      shadowColor: Colors.black.withOpacity(0.12),
+                      shadowColor: Colors.black.withValues(alpha: 0.12),
                       textStyle: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
@@ -269,7 +470,7 @@ class _MenuListScreenState extends State<MenuListScreen> {
                       ? const Center(child: Text('No menus found.'))
                       : ListView.separated(
                           itemCount: menus.length,
-                          separatorBuilder: (_, __) =>
+                          separatorBuilder: (_, index) =>
                               const SizedBox(height: 12),
                           itemBuilder: (context, index) {
                             final menu = menus[index];
@@ -289,7 +490,7 @@ class _MenuListScreenState extends State<MenuListScreen> {
                                   borderRadius: BorderRadius.circular(20),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: Colors.black.withOpacity(0.08),
+                                      color: Colors.black.withValues(alpha: 0.08),
                                       blurRadius: 18,
                                       offset: const Offset(0, 10),
                                     ),
