@@ -46,6 +46,7 @@ class AuthService {
       return;
     }
     _didInit = true;
+    await ApiClient.restoreAuthToken();
     if (kIsWeb) {
       await GoogleSignInPlatform.instance.initWithParams(
         SignInInitParameters(
@@ -112,7 +113,7 @@ class AuthService {
   }
 
   static Future<void> signOut() async {
-    ApiClient.authToken = null;
+    await ApiClient.clearAuthToken();
     _currentProfile = null;
     try {
       await _googleSignIn.signOut();

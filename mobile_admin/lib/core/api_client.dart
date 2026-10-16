@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/auth_models.dart';
 import '../models/menu_models.dart';
@@ -9,6 +10,24 @@ import 'api_config.dart';
 
 class ApiClient {
   static String? authToken;
+  static const _authTokenKey = 'admin_session_token';
+
+  static Future<void> restoreAuthToken() async {
+    final preferences = await SharedPreferences.getInstance();
+    authToken = preferences.getString(_authTokenKey);
+  }
+
+  static Future<void> clearAuthToken() async {
+    authToken = null;
+    final preferences = await SharedPreferences.getInstance();
+    await preferences.remove(_authTokenKey);
+  }
+
+  static Future<void> _saveAuthToken(String token) async {
+    authToken = token;
+    final preferences = await SharedPreferences.getInstance();
+    await preferences.setString(_authTokenKey, token);
+  }
 
   static Map<String, String> _headers({bool json = false}) {
     final headers = <String, String>{};
@@ -238,7 +257,7 @@ class ApiClient {
       _throwRequestError('Google login failed', response);
     }
     final auth = AuthResponse.fromJson(jsonDecode(response.body));
-    authToken = auth.token;
+    await _saveAuthToken(auth.token);
     return auth;
   }
 
@@ -261,7 +280,7 @@ class ApiClient {
       _throwRequestError('Email OTP verification failed', response);
     }
     final auth = AuthResponse.fromJson(jsonDecode(response.body));
-    authToken = auth.token;
+    await _saveAuthToken(auth.token);
     return auth;
   }
 }

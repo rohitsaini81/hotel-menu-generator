@@ -704,7 +704,9 @@ def delete_category(menu_id: str, category_id: str):
 
 @app.get("/")
 def root():
-    return redirect("/api/menus", code=302)
+    # The admin menu API is authenticated. Keep the server root useful for
+    # guests instead of redirecting them to /api/menus without a JWT.
+    return redirect(f"/hotel/{DEFAULT_MENU_ID}", code=302)
 
 
 @app.get("/hotel/<menu_id>")
