@@ -1,5 +1,6 @@
-const menuIdPattern =
-  /^([a-zA-Z0-9]{8}|[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12})$/;
+// Menu IDs are varchar in PostgreSQL. The route already provides one path
+// segment, so do not restrict IDs to the old UUID/8-character forms.
+const menuIdPattern = /^[^/]+$/;
 
 const getMenuIdFromPath = () => {
   const segments = window.location.pathname.split("/").filter(Boolean);

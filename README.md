@@ -9,13 +9,13 @@ Hotel menu system with:
 
 - `hotel-menu/`
   - Frontend web app (HTML/CSS/JS) for guests.
-  - Reads `menu_id` from URL path: `/hotel/<menu_id>`.
+  - Reads the varchar `menu_id` from URL path: `/hotel/<menu_id>`.
   - Fetches menu data from `/api/menu/<menu_id>`.
 
 - `server/`
   - `app.py`: primary Flask server to run locally.
   - Serves static frontend from `hotel-menu/`.
-  - Serves menu JSON API from files named as 8-char IDs (example: `b948064d.json`).
+  - Serves menu data from PostgreSQL using varchar IDs.
 
 - `mobile_admin/`
   - Flutter admin app prototype.
@@ -64,9 +64,9 @@ http://localhost:8000/hotel/b948064d
 
 ## How Routing Works
 
-- `GET /hotel/<8-char-id>`
+- `GET /hotel/<menu-id>`
   - Serves the frontend page.
-- `GET /api/menu/<8-char-id>`
+- `GET /api/menu/<menu-id>`
   - Returns JSON from `server/<id>.json`.
 - Any unknown/invalid ID returns `404`.
 

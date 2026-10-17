@@ -1,7 +1,7 @@
 """Database CRUD helpers for the `menus` table.
 
 Assumes PostgreSQL with columns:
-- id (uuid or text)
+- id (varchar)
 - hotel (jsonb)
 - categories (jsonb)
 - category_aliases (jsonb)
@@ -59,7 +59,7 @@ def get_menu(database_url: str, menu_id: str) -> MenuRecord | None:
             updated_at
         FROM menus
         WHERE
-            id::text = %(menu_id)s
+            id = %(menu_id)s
             OR hotel->>'id' = %(menu_id)s
             OR hotel->>'menu_id' = %(menu_id)s
             OR hotel->>'slug' = %(menu_id)s
@@ -208,7 +208,7 @@ def update_menu(
         """
         UPDATE menus
         SET {set_clause}
-        WHERE id::text = %(menu_id)s
+        WHERE id = %(menu_id)s
            OR hotel->>'id' = %(menu_id)s
            OR hotel->>'menu_id' = %(menu_id)s
            OR hotel->>'slug' = %(menu_id)s
@@ -238,7 +238,7 @@ def delete_menu(database_url: str, menu_id: str) -> bool:
     """Delete a menu by id or hotel identifiers; returns True if deleted."""
     query = """
         DELETE FROM menus
-        WHERE id::text = %(menu_id)s
+        WHERE id = %(menu_id)s
            OR hotel->>'id' = %(menu_id)s
            OR hotel->>'menu_id' = %(menu_id)s
            OR hotel->>'slug' = %(menu_id)s

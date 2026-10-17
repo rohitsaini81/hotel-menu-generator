@@ -171,7 +171,7 @@ def get_menu_from_db(menu_id: str) -> dict:
             updated_at
         FROM menus
         WHERE
-            id::text = %(menu_id)s
+            id = %(menu_id)s
             OR hotel->>'id' = %(menu_id)s
             OR hotel->>'menu_id' = %(menu_id)s
             OR hotel->>'slug' = %(menu_id)s
@@ -207,7 +207,7 @@ def _get_menu_for_user(menu_id: str, user_id: int) -> dict:
         FROM menus
         WHERE
             (
-                id::text = %(menu_id)s
+                id = %(menu_id)s
                 OR hotel->>'id' = %(menu_id)s
                 OR hotel->>'menu_id' = %(menu_id)s
                 OR hotel->>'slug' = %(menu_id)s
@@ -340,7 +340,10 @@ def create_menu():
     items = payload.get("items")
     if hotel is None or categories is None or items is None:
         abort(400, description="hotel, categories, and items are required")
-    menu_id = payload.get("id") or payload.get("menuId") or str(uuid.uuid4())
+    menu_id_value = payload.get("id") or payload.get("menuId")
+    menu_id = str(menu_id_value).strip() if menu_id_value is not None else str(uuid.uuid4())
+    if not menu_id:
+        abort(400, description="id or menuId cannot be empty")
     query = """
         INSERT INTO menus (
             id,
@@ -418,7 +421,7 @@ def replace_menu(menu_id: str):
             labels = %(labels)s,
             updated_at = NOW()
         WHERE (
-            id::text = %(menu_id)s
+            id = %(menu_id)s
             OR hotel->>'id' = %(menu_id)s
             OR hotel->>'menu_id' = %(menu_id)s
             OR hotel->>'slug' = %(menu_id)s
@@ -484,7 +487,7 @@ def update_menu(menu_id: str):
         UPDATE menus
         SET {", ".join(fields)}
         WHERE (
-            id::text = %(menu_id)s
+            id = %(menu_id)s
             OR hotel->>'id' = %(menu_id)s
             OR hotel->>'menu_id' = %(menu_id)s
             OR hotel->>'slug' = %(menu_id)s
@@ -517,7 +520,7 @@ def delete_menu(menu_id: str):
     query = """
         DELETE FROM menus
         WHERE (
-            id::text = %(menu_id)s
+            id = %(menu_id)s
             OR hotel->>'id' = %(menu_id)s
             OR hotel->>'menu_id' = %(menu_id)s
             OR hotel->>'slug' = %(menu_id)s
@@ -545,7 +548,7 @@ def _get_menu_row(menu_id: str, user_id: int) -> dict:
             updated_at
         FROM menus
         WHERE (
-            id::text = %(menu_id)s
+            id = %(menu_id)s
             OR hotel->>'id' = %(menu_id)s
             OR hotel->>'menu_id' = %(menu_id)s
             OR hotel->>'slug' = %(menu_id)s
@@ -571,7 +574,7 @@ def _save_menu_parts(menu_id: str, user_id: int, *, categories=None, items=None)
             items = COALESCE(%(items)s::jsonb, items),
             updated_at = NOW()
         WHERE (
-            id::text = %(menu_id)s
+            id = %(menu_id)s
             OR hotel->>'id' = %(menu_id)s
             OR hotel->>'menu_id' = %(menu_id)s
             OR hotel->>'slug' = %(menu_id)s
